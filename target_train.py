@@ -14,7 +14,16 @@ import sys
 import random
 import math
 
-from voice_train import DoubleRelu
+
+class DoubleRelu(Layer):
+    def call(self, x):
+        y1 = K.maximum(x, 0.0)
+        y2 = K.minimum(x, 0.0)
+        return concatenate([y1, y2])
+    
+    def compute_output_shape(self, input_shape):
+        input_shape[-1] *= 2
+        return input_shape
 
 
 class VoiceGeneratorTarget(Sequence):

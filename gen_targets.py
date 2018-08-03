@@ -2,6 +2,8 @@
 # -*- coding: utf-8 -*-
 
 from tensorflow.python.keras.models import load_model
+from tensorflow.python.keras import backend as K
+from tensorflow.python.keras.layers import concatenate
 import os
 import glob
 import shutil
@@ -10,7 +12,16 @@ import struct
 import numpy as np
 import sys
 
-from voice_train import DoubleRelu
+
+class DoubleRelu(Layer):
+    def call(self, x):
+        y1 = K.maximum(x, 0.0)
+        y2 = K.minimum(x, 0.0)
+        return concatenate([y1, y2])
+    
+    def compute_output_shape(self, input_shape):
+        input_shape[-1] *= 2
+        return input_shape
 
 
 if __name__ == '__main__':
