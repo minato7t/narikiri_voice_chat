@@ -3,7 +3,7 @@
 
 from tensorflow.python.keras.models import load_model
 from tensorflow.python.keras import backend as K
-from tensorflow.python.keras.layers import concatenate
+from tensorflow.python.keras.layers import concatenate, Layer
 import os
 import glob
 import shutil
@@ -35,8 +35,8 @@ if __name__ == '__main__':
     if len(sys.argv) >= 4:
         zip_name = sys.argv[3]
     
-    input_voices = glob.glob(input_voices_dir + '/*')
-    del_files = glob.glob(input_voices_dir + '/.*')
+    input_voices = glob.glob(input_voices_dir + '/**')
+    del_files = glob.glob(input_voices_dir + '/**/.*')
     for del_file in del_files:
         input_voices.remove(del_file)
 

@@ -21,12 +21,12 @@ cd NVC_train
 
 ## 1. 音声から解析ファイルを生成
 
+targetsフォルダを作成し、音声をその中に格納する
+
 ```
 # nvmファイルの生成（nvzファイルに必要）
 python make_nvm.py targets outputs/target.nvm
 ```
-
-voice.h5のダウンロード・解凍
 
 [こちら](https://github.com/NON906/NVC_train/releases/download/v0.1/voice_h5.zip)からダウンロードし、解凍したvoice.h5をリポジトリへ格納
 
@@ -41,7 +41,7 @@ python gen_targets.py targets gen_targets gen_targets.zip
 python target_train.py gen_targets outputs/target.h5 20 -1 32
 ```
 
-（中断した場合は、以下で再開できる）
+（備考：中断した場合は、以下で再開できる）
 
 ```
 python target_retrain.py outputs/target.h5 gen_targets outputs/target.h5 20 -1 32
@@ -53,7 +53,7 @@ python target_retrain.py outputs/target.h5 gen_targets outputs/target.h5 20 -1 3
 python target_pitch_train.py gen_targets outputs/pitch.h5 20 -1 32
 ```
 
-（中断した場合は、以下で再開できる）
+（備考：中断した場合は、以下で再開できる）
 
 ```
 python target_pitch_retrain.py outputs/pitch.h5 gen_targets outputs/pitch.h5 20 -1 32
