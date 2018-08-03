@@ -16,7 +16,7 @@ if __name__ == '__main__':
     if len(sys.argv) > 2:
         nvm_name = sys.argv[2]
     
-    input_voices = glob.glob(input_voices_dir + '/**')
+    input_voices = glob.glob(input_voices_dir + '/**/*')
     del_files = glob.glob(input_voices_dir + '/**/.*')
     for del_file in del_files:
         input_voices.remove(del_file)

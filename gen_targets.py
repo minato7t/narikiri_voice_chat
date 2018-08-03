@@ -27,15 +27,15 @@ class DoubleRelu(Layer):
 if __name__ == '__main__':
     input_voices_dir = 'targets'
     gen_dir_name = 'gen_targets'
-    zip_name = 'gen_targets.zip'
+    zip_name = 'gen_targets'
     if len(sys.argv) >= 2:
         input_voices_dir = sys.argv[1]
     if len(sys.argv) >= 3:
         gen_dir_name = sys.argv[2]
     if len(sys.argv) >= 4:
-        zip_name = sys.argv[3]
+        zip_name, _ = os.path.splitext(sys.argv[3])
     
-    input_voices = glob.glob(input_voices_dir + '/**')
+    input_voices = glob.glob(input_voices_dir + '/**/*')
     del_files = glob.glob(input_voices_dir + '/**/.*')
     for del_file in del_files:
         input_voices.remove(del_file)
