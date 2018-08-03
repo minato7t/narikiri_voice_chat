@@ -26,11 +26,7 @@ targetsフォルダを作成し、音声をその中に格納する
 ```
 # nvmファイルの生成（nvzファイルに必要）
 python make_nvm.py targets outputs/target.nvm
-```
 
-[こちら](https://github.com/NON906/NVC_train/releases/download/v0.1/voice_h5.zip)からダウンロードし、解凍したvoice.h5をリポジトリへ格納
-
-```
 # gen_targetsの生成（学習に必要）
 python gen_targets.py targets gen_targets gen_targets.zip
 ```
