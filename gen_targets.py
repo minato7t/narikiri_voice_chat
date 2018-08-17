@@ -38,7 +38,7 @@ if __name__ == '__main__':
     input_voices = glob.glob(input_voices_dir + '/**/*')
     input_voices.extend(glob.glob(input_voices_dir + '/*'))
     del_files = glob.glob(input_voices_dir + '/**/.*')
-    del_files.extend(input_voices_dir + '/.*')
+    del_files.extend(glob.glob(input_voices_dir + '/.*'))
     for del_file in del_files:
         input_voices.remove(del_file)
 
