@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from tensorflow.python.keras.models import Sequential, Model
+from tensorflow.python.keras.models import Sequential, Model, load_model
 from tensorflow.python.keras.layers import Dense, Dropout, Activation, Bidirectional, LSTM, BatchNormalization, Input, Layer, concatenate
 from tensorflow.python.keras import backend as K
 from tensorflow.python.keras.callbacks import EarlyStopping, ModelCheckpoint
@@ -29,6 +29,8 @@ class DoubleRelu(Layer):
 class VoiceGeneratorTarget(Sequence):
     def __init__(self, dir_path, val_file, batch_size, length=None, train=True):
         self.length = length
+        if self.length is None or self.length < 0:
+            self.length = None
         self.batch_size = batch_size
         self.train = train
         
@@ -127,46 +129,59 @@ class VoiceGeneratorTarget(Sequence):
         return batch_inputs, batch_targets
 
 
-if __name__ == '__main__':
-    if len(sys.argv) < 3:
-        print('arg error')
-        exit()
+def target_train_main(gen_targets_dir, model_file_path, early_stopping_patience=None, length=None, batch_size=1, retrain_file=None, retrain_do_compile=False):
+    if retrain_file is None:
+        model = Sequential(name='target_model')
+        model.add(Bidirectional(LSTM(128, return_sequences=True), input_shape=(None, 257), name='target_blstm0'))
+        model.add(Dropout(0.3, name='target_dropout0'))
+        for loop in range(15):
+            model.add(Dense(256, name='target_dense' + str(loop)))
+            model.add(BatchNormalization(name='target_bn' + str(loop)))
+            model.add(DoubleRelu(name='target_dr' + str(loop)))
+        for loop in range(1):
+            model.add(Bidirectional(LSTM(128, return_sequences=True), name='target_blstm_f' + str(loop)))
+            model.add(Dropout(0.3, name='target_dropout_f' + str(loop)))
+        model.add(Dense(39, name='target_dense_f'))
+        model.summary()
+        model.compile(loss='mean_squared_error', optimizer='adam')
+    else:
+        model = load_model(retrain_file, custom_objects={'DoubleRelu': DoubleRelu})
+        if retrain_do_compile:
+            model.compile(loss='mean_squared_error', optimizer='adam')
 
-    model = Sequential(name='target_model')
-    model.add(Bidirectional(LSTM(128, return_sequences=True), input_shape=(None, 257), name='target_blstm0'))
-    model.add(Dropout(0.3, name='target_dropout0'))
-    for loop in range(15):
-        model.add(Dense(256, name='target_dense' + str(loop)))
-        model.add(BatchNormalization(name='target_bn' + str(loop)))
-        model.add(DoubleRelu(name='target_dr' + str(loop)))
-    for loop in range(1):
-        model.add(Bidirectional(LSTM(128, return_sequences=True), name='target_blstm_f' + str(loop)))
-        model.add(Dropout(0.3, name='target_dropout_f' + str(loop)))
-    model.add(Dense(39, name='target_dense_f'))
-    model.summary()
+    cp = ModelCheckpoint(filepath=model_file_path, monitor='val_loss', save_best_only=True)
     
-    model.compile(loss='mean_squared_error', optimizer='adam')
-
-    cp = ModelCheckpoint(filepath=sys.argv[2], monitor='val_loss', save_best_only=True)
-    
-    if len(sys.argv) >= 4 and int(sys.argv[3]) >= 0:
-        es = EarlyStopping(monitor='val_loss', patience=int(sys.argv[3]), verbose=0, mode='auto')
+    if early_stopping_patience is not None:
+        es = EarlyStopping(monitor='val_loss', patience=early_stopping_patience, verbose=0, mode='auto')
         callbacks = [es, cp]
     else:
         callbacks = [cp]
-
-    if len(sys.argv) >= 5 and int(sys.argv[4]) >= 0:
-        length = int(sys.argv[4])
-    else:
-        length = None
-
-    if len(sys.argv) >= 6:
-        batch_size = int(sys.argv[5])
     
-    model.fit_generator(VoiceGeneratorTarget(sys.argv[1], 0.1, batch_size, length, train=True),
+    model.fit_generator(VoiceGeneratorTarget(gen_targets_dir, 0.1, batch_size, length, train=True),
         shuffle=True,
         epochs=100000,
         verbose=1,
         callbacks=callbacks,
-        validation_data=VoiceGeneratorTarget(sys.argv[1], 0.1, batch_size, train=False)
+        validation_data=VoiceGeneratorTarget(gen_targets_dir, 0.1, batch_size, train=False)
     )
+
+
+if __name__ == '__main__':
+    if len(sys.argv) < 3:
+        print('arg error')
+        exit()
+    
+    early_stopping_patience = None
+    if len(sys.argv) >= 4 and int(sys.argv[3]) >= 0:
+        early_stopping_patience = int(sys.argv[3])
+    
+    length = None
+    if len(sys.argv) >= 5 and int(sys.argv[4]) >= 0:
+        length = int(sys.argv[4])
+    
+    batch_size = 1
+    if len(sys.argv) >= 6 and int(sys.argv[5]) >= 1:
+        batch_size = int(sys.argv[5])
+    
+    target_train_main(sys.argv[1], sys.argv[2], early_stopping_patience, length, batch_size)
+

@@ -14,12 +14,14 @@ import sys
 import random
 import math
 
-from target_train import DoubleRelu
+from .target_train import DoubleRelu
 
 
 class VoiceGeneratorTargetPitch(Sequence):
     def __init__(self, dir_path, val_file, batch_size, length=None, train=True):
         self.length = length
+        if self.length is None or self.length < 0:
+            self.length = None
         self.batch_size = batch_size
         self.train = train
         
@@ -104,62 +106,76 @@ class VoiceGeneratorTargetPitch(Sequence):
         return batch_inputs, batch_targets
 
 
+def target_pitch_train_main(gen_targets_dir, model_file_path, early_stopping_patience=None, length=None, batch_size=1, retrain_file=None, retrain_do_compile=False):
+    if retrain_file is None:
+        model = Sequential(name='pitch_model')
+        model.add(Bidirectional(LSTM(128, return_sequences=True), input_shape=(None, 256), name='pitch_blstm0'))
+        model.add(Dropout(0.3, name='pitch_dropout0'))
+        for loop in range(10):
+            model.add(Dense(256, name='pitch_dense' + str(loop)))
+            model.add(BatchNormalization(name='pitch_bn' + str(loop)))
+            model.add(DoubleRelu(name='pitch_dr' + str(loop)))
+        model.add(Dense(128, name='pitch_dense10'))
+        model.add(BatchNormalization(name='pitch_bn10'))
+        model.add(DoubleRelu(name='pitch_dr10'))
+        model.add(Dense(64, name='pitch_dense11'))
+        model.add(BatchNormalization(name='pitch_bn11'))
+        model.add(DoubleRelu(name='pitch_dr11'))
+        model.add(Dense(32, name='pitch_dense12'))
+        model.add(BatchNormalization(name='pitch_bn12'))
+        model.add(DoubleRelu(name='pitch_dr12'))
+        model.add(Dense(16, name='pitch_dense13'))
+        model.add(BatchNormalization(name='pitch_bn13'))
+        model.add(DoubleRelu(name='pitch_dr13'))
+        model.add(Dense(8, name='pitch_dense14'))
+        model.add(BatchNormalization(name='pitch_bn14'))
+        model.add(DoubleRelu(name='pitch_dr14'))
+        for loop in range(1):
+            model.add(Bidirectional(LSTM(4, return_sequences=True), name='pitch_blstm_f' + str(loop)))
+            model.add(Dropout(0.3, name='pitch_dropout_f' + str(loop)))
+        model.add(Dense(1, name='pitch_dense_f'))
+        model.add(Activation('relu', name='pitch_relu_f'))
+        model.summary()
+        model.compile(loss='mean_squared_error', optimizer='adam')
+    else:
+        model = load_model(retrain_file, custom_objects={'DoubleRelu': DoubleRelu})
+        if retrain_do_compile:
+            model.compile(loss='mean_squared_error', optimizer='adam')
+
+    cp = ModelCheckpoint(filepath=model_file_path, monitor='val_loss', save_best_only=True)
+    
+    if early_stopping_patience is not None:
+        es = EarlyStopping(monitor='val_loss', patience=early_stopping_patience, verbose=0, mode='auto')
+        callbacks = [es, cp]
+    else:
+        callbacks = [cp]
+
+    model.fit_generator(VoiceGeneratorTargetPitch(gen_targets_dir, 0.1, batch_size, length, train=True),
+        shuffle=True,
+        epochs=100000,
+        verbose=1,
+        callbacks=callbacks,
+        validation_data=VoiceGeneratorTargetPitch(gen_targets_dir, 0.1, batch_size, train=False)
+    )
+
+
 if __name__ == '__main__':
     if len(sys.argv) < 3:
         print('arg error')
         exit()
 
-    model = Sequential(name='pitch_model')
-    model.add(Bidirectional(LSTM(128, return_sequences=True), input_shape=(None, 256), name='pitch_blstm0'))
-    model.add(Dropout(0.3, name='pitch_dropout0'))
-    for loop in range(10):
-        model.add(Dense(256, name='pitch_dense' + str(loop)))
-        model.add(BatchNormalization(name='pitch_bn' + str(loop)))
-        model.add(DoubleRelu(name='pitch_dr' + str(loop)))
-    model.add(Dense(128, name='pitch_dense10'))
-    model.add(BatchNormalization(name='pitch_bn10'))
-    model.add(DoubleRelu(name='pitch_dr10'))
-    model.add(Dense(64, name='pitch_dense11'))
-    model.add(BatchNormalization(name='pitch_bn11'))
-    model.add(DoubleRelu(name='pitch_dr11'))
-    model.add(Dense(32, name='pitch_dense12'))
-    model.add(BatchNormalization(name='pitch_bn12'))
-    model.add(DoubleRelu(name='pitch_dr12'))
-    model.add(Dense(16, name='pitch_dense13'))
-    model.add(BatchNormalization(name='pitch_bn13'))
-    model.add(DoubleRelu(name='pitch_dr13'))
-    model.add(Dense(8, name='pitch_dense14'))
-    model.add(BatchNormalization(name='pitch_bn14'))
-    model.add(DoubleRelu(name='pitch_dr14'))
-    for loop in range(1):
-        model.add(Bidirectional(LSTM(4, return_sequences=True), name='pitch_blstm_f' + str(loop)))
-        model.add(Dropout(0.3, name='pitch_dropout_f' + str(loop)))
-    model.add(Dense(1, name='pitch_dense_f'))
-    model.add(Activation('relu', name='pitch_relu_f'))
-    model.summary()
-    
-    model.compile(loss='mean_squared_error', optimizer='adam')
-
-    cp = ModelCheckpoint(filepath=sys.argv[2], monitor='val_loss', save_best_only=True)
-    
+    early_stopping_patience = None
     if len(sys.argv) >= 4 and int(sys.argv[3]) >= 0:
-        es = EarlyStopping(monitor='val_loss', patience=int(sys.argv[3]), verbose=0, mode='auto')
-        callbacks = [es, cp]
-    else:
-        callbacks = [cp]
-
+        early_stopping_patience = int(sys.argv[3])
+    
+    length = None
     if len(sys.argv) >= 5 and int(sys.argv[4]) >= 0:
         length = int(sys.argv[4])
-    else:
-        length = None
-
-    if len(sys.argv) >= 6:
+    
+    batch_size = 1
+    if len(sys.argv) >= 6 and int(sys.argv[5]) >= 1:
         batch_size = int(sys.argv[5])
     
-    model.fit_generator(VoiceGeneratorTargetPitch(sys.argv[1], 0.1, batch_size, length, train=True),
-        shuffle=True,
-        epochs=100000,
-        verbose=1,
-        callbacks=callbacks,
-        validation_data=VoiceGeneratorTargetPitch(sys.argv[1], 0.1, batch_size, train=False)
-    )
+    target_pitch_train_main(sys.argv[1], sys.argv[2], early_stopping_patience, length, batch_size)
+    
+

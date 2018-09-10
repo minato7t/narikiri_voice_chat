@@ -8,18 +8,12 @@ import struct
 import sys
 
 
-if __name__ == '__main__':
-    input_voices_dir = 'targets'
-    nvm_name = 'outputs/target.nvm'
-    if len(sys.argv) > 1:
-        input_voices_dir = sys.argv[1]
-    if len(sys.argv) > 2:
-        nvm_name = sys.argv[2]
-    
-    input_voices = glob.glob(input_voices_dir + '/**/*')
-    input_voices.extend(glob.glob(input_voices_dir + '/*'))
-    del_files = glob.glob(input_voices_dir + '/**/.*')
-    del_files.extend(glob.glob(input_voices_dir + '/.*'))
+def make_nvm_main(input_voices_dir='targets', nvm_name='outputs/target.nvm'):
+    input_voices = glob.glob(input_voices_dir + '/**/*', recursive=True)
+    del_files = glob.glob(input_voices_dir + '/**/.*', recursive=True)
+    for input_voice in input_voices:
+        if os.path.isdir(input_voice):
+            del_files.append(input_voice)
     for del_file in del_files:
         input_voices.remove(del_file)
 
@@ -60,3 +54,14 @@ if __name__ == '__main__':
     write_file.write(struct.pack('<f', pitch_ave))
     write_file.write(struct.pack('<i', 1024))
     write_file.close()
+
+
+if __name__ == '__main__':
+    input_voices_dir = 'targets'
+    nvm_name = 'outputs/target.nvm'
+    if len(sys.argv) > 1:
+        input_voices_dir = sys.argv[1]
+    if len(sys.argv) > 2:
+        nvm_name = sys.argv[2]
+    
+    make_nvm_main(input_voices_dir, nvm_name)
