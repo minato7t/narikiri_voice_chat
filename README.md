@@ -4,7 +4,7 @@
 
 ## Google Colaboratoryで実行（推奨）
 
-Google Colaboratoryでnvc_train.ipynbを開き、その手順に従ってください。
+[こちら](https://colab.research.google.com/github/NON906/NVC_train/blob/master/nvc_train.ipynb)を開き、その手順に従ってください。
 生成したファイルの一部はGoogleドライブ上に保存されるため、あらかじめ空きを作っておいてください。
 
 Google Colaboratory（[公式サイト](https://colab.research.google.com/)）はブラウザ上から無料で使える仮想環境です。
