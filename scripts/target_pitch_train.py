@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from tensorflow.python.keras.models import Sequential, Model
-from tensorflow.python.keras.layers import Dense, Dropout, Activation, Bidirectional, LSTM, BatchNormalization, Input, Layer, concatenate, InputLayer
-from tensorflow.python.keras import backend as K
-from tensorflow.python.keras.callbacks import EarlyStopping, ModelCheckpoint
-from tensorflow.python.keras.utils import Sequence
+from keras.models import Sequential, Model, load_model
+from keras.layers import Dense, Activation, Bidirectional, LSTM, InputLayer, Reshape
+from keras import backend as K
+from keras.callbacks import EarlyStopping, ModelCheckpoint
+from keras.utils import Sequence
 import os
 import glob
 import struct
@@ -13,8 +13,6 @@ import numpy as np
 import sys
 import random
 import math
-
-from .target_train import DoubleRelu
 
 
 class VoiceGeneratorTargetPitch(Sequence):
@@ -65,9 +63,9 @@ class VoiceGeneratorTargetPitch(Sequence):
             data_array = []
             lab_data = []
             file_data = open(input_voice, 'rb').read()
-            for loop in range(len(file_data) // (4 * 257)):
-                data_array.append(list(struct.unpack('<256f', file_data[loop * 4 * 257:(loop + 1) * 4 * 257 - 4])))
-                lab_data.append(list(struct.unpack('<f', file_data[(loop + 1) * 4 * 257 - 4:(loop + 1) * 4 * 257])))
+            for loop in range(len(file_data) // (4 * 129)):
+                data_array.append(list(struct.unpack('<128f', file_data[loop * 4 * 129:(loop + 1) * 4 * 129 - 4])))
+                lab_data.append(list(struct.unpack('<f', file_data[(loop + 1) * 4 * 129 - 4:(loop + 1) * 4 * 129])))
             
             if len(data_array) > MAX_SIZE:
                 max_array_size = MAX_SIZE
@@ -82,7 +80,7 @@ class VoiceGeneratorTargetPitch(Sequence):
         
         for loop in range(len(data_array2)):
             for loop2 in range(max_array_size - len(data_array2[loop])):
-                data_array2[loop].append([0.0] * 256)
+                data_array2[loop].append([0.0] * 128)
 
         for loop in range(len(lab_data2)):
             for loop2 in range(max_array_size - len(lab_data2[loop])):
@@ -109,36 +107,16 @@ class VoiceGeneratorTargetPitch(Sequence):
 def target_pitch_train_main(gen_targets_dir, model_file_path, early_stopping_patience=None, length=None, batch_size=1, retrain_file=None, retrain_do_compile=False):
     if retrain_file is None:
         model = Sequential(name='pitch_model')
-        model.add(Bidirectional(LSTM(128, return_sequences=True), input_shape=(None, 256), name='pitch_blstm0'))
-        model.add(Dropout(0.3, name='pitch_dropout0'))
-        for loop in range(10):
-            model.add(Dense(256, name='pitch_dense' + str(loop)))
-            model.add(BatchNormalization(name='pitch_bn' + str(loop)))
-            model.add(DoubleRelu(name='pitch_dr' + str(loop)))
-        model.add(Dense(128, name='pitch_dense10'))
-        model.add(BatchNormalization(name='pitch_bn10'))
-        model.add(DoubleRelu(name='pitch_dr10'))
-        model.add(Dense(64, name='pitch_dense11'))
-        model.add(BatchNormalization(name='pitch_bn11'))
-        model.add(DoubleRelu(name='pitch_dr11'))
-        model.add(Dense(32, name='pitch_dense12'))
-        model.add(BatchNormalization(name='pitch_bn12'))
-        model.add(DoubleRelu(name='pitch_dr12'))
-        model.add(Dense(16, name='pitch_dense13'))
-        model.add(BatchNormalization(name='pitch_bn13'))
-        model.add(DoubleRelu(name='pitch_dr13'))
-        model.add(Dense(8, name='pitch_dense14'))
-        model.add(BatchNormalization(name='pitch_bn14'))
-        model.add(DoubleRelu(name='pitch_dr14'))
-        for loop in range(1):
-            model.add(Bidirectional(LSTM(4, return_sequences=True), name='pitch_blstm_f' + str(loop)))
-            model.add(Dropout(0.3, name='pitch_dropout_f' + str(loop)))
+        model.add(Bidirectional(LSTM(128, return_sequences=True), merge_mode='ave', input_shape=(None, 128), name='pitch_blstm0'))
+        model.add(Reshape((-1, 16), name='pitch_split0'))
+        model.add(Bidirectional(LSTM(16, return_sequences=True), merge_mode='ave', name='pitch_blstm1'))
+        model.add(Reshape((-1, 128), name='pitch_concat0'))
         model.add(Dense(1, name='pitch_dense_f'))
         model.add(Activation('relu', name='pitch_relu_f'))
         model.summary()
         model.compile(loss='mean_squared_error', optimizer='adam')
     else:
-        model = load_model(retrain_file, custom_objects={'DoubleRelu': DoubleRelu})
+        model = load_model(retrain_file)
         if retrain_do_compile:
             model.compile(loss='mean_squared_error', optimizer='adam')
 

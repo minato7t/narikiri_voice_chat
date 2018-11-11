@@ -1,8 +1,8 @@
 # NVC_train
 
-[‚±‚¿‚ç](https://github.com/NON906/NVC)‚ÅŽg—p‚·‚é‰¹Œ¹ƒtƒ@ƒCƒ‹(*.nvz)‚ðì¬‚·‚é‚½‚ß‚Ìƒc[ƒ‹‚Å‚·B
+[‚±‚¿‚ç](https://www.mumeigames.online/nvc/)‚ÅŽg—p‚·‚é‰¹Œ¹ƒtƒ@ƒCƒ‹(*.nvz)‚ðì¬‚·‚é‚½‚ß‚Ìƒc[ƒ‹‚Å‚·B
 
-## Google Colaboratory‚ÅŽÀsi„§j
+## Google Colaboratory‚ÅŽÀs
 
 [‚±‚¿‚ç](https://colab.research.google.com/github/NON906/NVC_train/blob/master/nvc_train.ipynb)‚ðŠJ‚«A‚»‚ÌŽè‡‚É]‚Á‚Ä‚­‚¾‚³‚¢B
 ¶¬‚µ‚½ƒtƒ@ƒCƒ‹‚Ìˆê•”‚ÍGoogleƒhƒ‰ƒCƒuã‚É•Û‘¶‚³‚ê‚é‚½‚ßA‚ ‚ç‚©‚¶‚ß‹ó‚«‚ðì‚Á‚Ä‚¨‚¢‚Ä‚­‚¾‚³‚¢B
@@ -11,8 +11,3 @@ Google Colaboratoryi[ŒöŽ®ƒTƒCƒg](https://colab.research.google.com/)j‚Íƒuƒ‰ƒEƒ
 ƒuƒ‰ƒEƒU‚ªŽg‚¦‚éPC‚Å‚ ‚ê‚ÎAOS‚ð–â‚í‚¸Žg‚¤‚±‚Æ‚ª‚Å‚«‚Ü‚·B
 ƒNƒ‰ƒEƒhã‚ÉŠÂ‹«‚ªì‚ç‚ê‚é‚½‚ßAƒCƒ“ƒXƒg[ƒ‹‚È‚Ç‚É‚æ‚Á‚Äƒ[ƒJƒ‹‚ÌŠÂ‹«‚ª•Ï‚í‚Á‚Ä‚µ‚Ü‚¤‚±‚Æ‚Í‚ ‚è‚Ü‚¹‚ñB
 GPU‚ðŽg—p‚·‚é‚±‚Æ‚à‚Å‚«‚é‚Ì‚ÅA‚±‚Ì•û–@‚ð„§‚µ‚Ü‚·B
-
-## Windowsiƒ[ƒJƒ‹j‚ÅŽÀs
-
-ƒ[ƒJƒ‹ŠÂ‹«‚ÌWindows‚ÅŽÀs‚·‚éê‡‚ÍAnvc_train.md‚ðŠm”F‚µ‚Ä‚­‚¾‚³‚¢B
-‚È‚¨ANVIDIA»‚ÌGPU‚ª‚ ‚èA‚È‚¨‚©‚ÂCUDAEcuDNN‚ªƒCƒ“ƒXƒg[ƒ‹‚³‚ê‚Ä‚¢‚é•K—v‚ª‚ ‚è‚Ü‚·B

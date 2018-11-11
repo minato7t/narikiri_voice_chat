@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from tensorflow.python.keras.models import Sequential, Model, load_model
-from tensorflow.python.keras.layers import Dense, Dropout, Activation, Bidirectional, LSTM, BatchNormalization, Input, Layer, concatenate
-from tensorflow.python.keras import backend as K
-from tensorflow.python.keras.callbacks import EarlyStopping, ModelCheckpoint
-from tensorflow.python.keras.utils import Sequence
+from keras.models import Sequential, Model, load_model
+from keras.layers import Dense, Activation, Bidirectional, LSTM, Reshape
+from keras import backend as K
+from keras.callbacks import EarlyStopping, ModelCheckpoint
+from keras.utils import Sequence
 import os
 import glob
 import struct
@@ -13,17 +13,6 @@ import numpy as np
 import sys
 import random
 import math
-
-
-class DoubleRelu(Layer):
-    def call(self, x):
-        y1 = K.maximum(x, 0.0)
-        y2 = K.minimum(x, 0.0)
-        return concatenate([y1, y2])
-    
-    def compute_output_shape(self, input_shape):
-        input_shape[-1] *= 2
-        return input_shape
 
 
 class VoiceGeneratorTarget(Sequence):
@@ -79,8 +68,8 @@ class VoiceGeneratorTarget(Sequence):
             
             data_array = []
             file_data = open(dir_name + '/' + name + '.voice', 'rb').read()
-            for loop in range(len(file_data) // (4 * 257)):
-                data_array.append(list(struct.unpack('<257f', file_data[loop * 4 * 257:(loop + 1) * 4 * 257])))
+            for loop in range(len(file_data) // (4 * 129)):
+                data_array.append(list(struct.unpack('<129f', file_data[loop * 4 * 129:(loop + 1) * 4 * 129])))
             
             lab_data = []
             file_data = open(dir_name + '/' + name + '.mcep', 'rb').read()
@@ -105,7 +94,7 @@ class VoiceGeneratorTarget(Sequence):
         
         for loop in range(len(data_array2)):
             for loop2 in range(max_array_size - len(data_array2[loop])):
-                data_array2[loop].append([0.0] * 257)
+                data_array2[loop].append([0.0] * 129)
 
         for loop in range(len(lab_data2)):
             for loop2 in range(max_array_size - len(lab_data2[loop])):
@@ -132,20 +121,15 @@ class VoiceGeneratorTarget(Sequence):
 def target_train_main(gen_targets_dir, model_file_path, early_stopping_patience=None, length=None, batch_size=1, retrain_file=None, retrain_do_compile=False):
     if retrain_file is None:
         model = Sequential(name='target_model')
-        model.add(Bidirectional(LSTM(128, return_sequences=True), input_shape=(None, 257), name='target_blstm0'))
-        model.add(Dropout(0.3, name='target_dropout0'))
-        for loop in range(15):
-            model.add(Dense(256, name='target_dense' + str(loop)))
-            model.add(BatchNormalization(name='target_bn' + str(loop)))
-            model.add(DoubleRelu(name='target_dr' + str(loop)))
-        for loop in range(1):
-            model.add(Bidirectional(LSTM(128, return_sequences=True), name='target_blstm_f' + str(loop)))
-            model.add(Dropout(0.3, name='target_dropout_f' + str(loop)))
+        model.add(Bidirectional(LSTM(128, return_sequences=True), merge_mode='ave', input_shape=(None, 129), name='target_blstm0'))
+        model.add(Reshape((-1, 16), name='target_split0'))
+        model.add(Bidirectional(LSTM(16, return_sequences=True), merge_mode='ave', name='target_blstm1'))
+        model.add(Reshape((-1, 128), name='target_concat0'))
         model.add(Dense(39, name='target_dense_f'))
         model.summary()
         model.compile(loss='mean_squared_error', optimizer='adam')
     else:
-        model = load_model(retrain_file, custom_objects={'DoubleRelu': DoubleRelu})
+        model = load_model(retrain_file)
         if retrain_do_compile:
             model.compile(loss='mean_squared_error', optimizer='adam')
 

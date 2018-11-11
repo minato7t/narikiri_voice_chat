@@ -49,7 +49,7 @@ def make_nvm_main(input_voices_dir='targets', nvm_name='outputs/target.nvm'):
     pitch_ave /= pitch_count
 
     write_file = open(nvm_name, 'wb')
-    write_file.write(struct.pack('<i', 1))
+    write_file.write(struct.pack('<i', 2))
     write_file.write(struct.pack('<i', 800))
     write_file.write(struct.pack('<f', pitch_ave))
     write_file.write(struct.pack('<i', 1024))

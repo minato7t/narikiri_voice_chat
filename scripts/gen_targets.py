@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from tensorflow.python.keras.models import load_model
-from tensorflow.python.keras import backend as K
-from tensorflow.python.keras.layers import concatenate, Layer
+from keras.models import load_model
+from keras import backend as K
+from keras.layers import concatenate, Layer
 import os
 import glob
 import shutil
@@ -11,17 +11,6 @@ import subprocess
 import struct
 import numpy as np
 import sys
-
-
-class DoubleRelu(Layer):
-    def call(self, x):
-        y1 = K.maximum(x, 0.0)
-        y2 = K.minimum(x, 0.0)
-        return concatenate([y1, y2])
-    
-    def compute_output_shape(self, input_shape):
-        input_shape[-1] *= 2
-        return input_shape
 
 
 def gen_targets_main(input_voices_dir='targets', gen_dir_name='gen_targets', zip_file_name=None):
@@ -42,10 +31,9 @@ def gen_targets_main(input_voices_dir='targets', gen_dir_name='gen_targets', zip
     if os.path.isdir(gen_dir_name) == False:
         os.mkdir(gen_dir_name)
     
-    model_voice = load_model('voice.h5', custom_objects={'DoubleRelu': DoubleRelu})
-    for loop in range(4):
+    model_voice = load_model('voice.h5')
+    while model_voice.layers[-1].name != 'voice_blstm_out':
         model_voice.pop()
-    model_voice.summary()
     
     for input_voice in input_voices:
         
