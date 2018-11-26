@@ -48,12 +48,12 @@ def gen_targets_main(input_voices_dir='targets', gen_dir_name='gen_targets', zip
             if os.name == 'nt':
                 subprocess.call('bin\\sptk\\x2x +sf < tmp\\tmp.raw | bin\\sptk\\bcut -s ' + str(cut_loop * 800 // 16) + ' > tmp\\tmp.bcut', shell=True)
                 subprocess.call('bin\\sptk\\mfcc -l 800 -f 16 -m 12 -n 20 -a 0.97 -E < tmp\\tmp.bcut | bin\\sptk\\delta -m 12 -d -0.5 0 0.5 -d 0.25 0 -0.5 0 0.25 > tmp\\tmp.mfcc', shell=True)
-                subprocess.call('bin\\sptk\\pitch -a 1 -H 600 -p 800 < tmp\\tmp.bcut > tmp\\tmp.pitch', shell=True)
+                subprocess.call('bin\\sptk\\pitch -a 1 -H 600 -p 800 -t1 0.2 < tmp\\tmp.bcut > tmp\\tmp.pitch', shell=True)
                 subprocess.call('bin\\sptk\\frame -l 1024 -p 800 < tmp\\tmp.bcut | bin\\sptk\\window -l 1024 -L 1024 | bin\\sptk\\mcep -l 1024 -m 39 -a 0.42 -e 0.001 > "' + gen_dir_name + '\\' + name + '_' + str(cut_loop) + '.mcep"', shell=True)
             else:
                 subprocess.call('x2x +sf < tmp/tmp.raw | bcut -s ' + str(cut_loop * 800 // 16) + ' > tmp/tmp.bcut', shell=True)
                 subprocess.call('mfcc -l 800 -f 16 -m 12 -n 20 -a 0.97 -E < tmp/tmp.bcut | delta -m 12 -d -0.5 0 0.5 -d 0.25 0 -0.5 0 0.25 > tmp/tmp.mfcc', shell=True)
-                subprocess.call('pitch -a 1 -H 600 -p 800 < tmp/tmp.bcut > tmp/tmp.pitch', shell=True)
+                subprocess.call('pitch -a 1 -H 600 -p 800 -t1 0.2 < tmp/tmp.bcut > tmp/tmp.pitch', shell=True)
                 subprocess.call('frame -l 1024 -p 800 < tmp/tmp.bcut | window -l 1024 -L 1024 | mcep -l 1024 -m 39 -a 0.42 -e 0.001 > "' + gen_dir_name + '/' + name + '_' + str(cut_loop) + '.mcep"', shell=True)
             
             mfcc = []
