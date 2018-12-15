@@ -70,16 +70,16 @@ class VoiceGeneratorTargetTpu(Sequence):
             name = os.path.basename(input_voice)
             dir_name = os.path.dirname(input_voice)
             
-            data_array = []
             file_data = open(dir_name + '/' + name + '.voice', 'rb').read()
+            data_array = [None for _ in range(len(file_data) // (4 * 129))]
             for loop in range(len(file_data) // (4 * 129)):
-                data_array.append(list(struct.unpack('<129f', file_data[loop * 4 * 129:(loop + 1) * 4 * 129])))
+                data_array[loop] = list(struct.unpack('<129f', file_data[loop * 4 * 129:(loop + 1) * 4 * 129]))
             
-            lab_data = []
             file_data = open(dir_name + '/' + name + '.mcep', 'rb').read()
+            lab_data = [None for _ in range(len(file_data) // (4 * 21 * 8) * 8)]
             for loop in range(len(file_data) // (4 * 21 * 8)):
                 for loop2 in range(8):
-                    lab_data.append(list(struct.unpack('<20f', file_data[(loop * 8 + loop2) * 4 * 21 + 4:(loop * 8 + loop2 + 1) * 4 * 21])))
+                    lab_data[loop * 8 + loop2] = list(struct.unpack('<20f', file_data[(loop * 8 + loop2) * 4 * 21 + 4:(loop * 8 + loop2 + 1) * 4 * 21]))
             
             while len(data_array) * 8 > len(lab_data):
                 data_array.pop()
@@ -104,12 +104,10 @@ class VoiceGeneratorTargetTpu(Sequence):
             self.index += 1
         
         for loop in range(len(data_array2)):
-            for loop2 in range(max_array_size - len(data_array2[loop])):
-                data_array2[loop].append([0.0 for _ in range(129)])
+            data_array2[loop].extend([[0.0 for _ in range(129)] for _ in range(max_array_size - len(data_array2[loop]))])
 
         for loop in range(len(lab_data2)):
-            for loop2 in range(max_array_size * 8 - len(lab_data2[loop])):
-                lab_data2[loop].append([0.0 for _ in range(20)])
+            lab_data2[loop].extend([[0.0 for _ in range(20)] for _ in range(max_array_size * 8 - len(lab_data2[loop]))])
         
         self.data_array = data_array2
         self.lab_data = lab_data2
