@@ -42,13 +42,19 @@ class VoiceGeneratorTargetPitchTpu(Sequence):
         
         self.max_size = max_size
         
+        self.reverse = False
+        
         self.get_input_voices()
 
     @staticmethod
     def get_input_files(dir_path):
         input_voices_list = []
-        input_voices = glob.glob(dir_path + '/*.voice')
-        return sorted(input_voices)
+        input_voices = glob.glob(dir_path + '/*_nor.voice')
+        for input_voice in input_voices:
+            name, _ = os.path.splitext(input_voice)
+            name = name[:-4]
+            input_voices_list.append(name)
+        return sorted(input_voices_list)
 
     def get_input_voices(self):
         MAX_SIZE = 256
@@ -67,9 +73,19 @@ class VoiceGeneratorTargetPitchTpu(Sequence):
                 self.index = 0
                 if self.train:
                     random.shuffle(self.input_files)
-                if self.length is None:
-                    break
-            input_voice = self.input_files[self.index]
+                if self.reverse == False:
+                    self.reverse = True
+                else:
+                    self.reverse = False
+                    if self.length is None:
+                        break
+            
+            if self.reverse == False:
+                rev_str = '_nor'
+            else:
+                rev_str = '_rev'
+            
+            input_voice = self.input_files[self.index] + rev_str + '.voice'
             
             file_data = open(input_voice, 'rb').read()
             data_array = [None for _ in range(len(file_data) // (4 * 129))]
@@ -113,6 +129,8 @@ class VoiceGeneratorTargetPitchTpu(Sequence):
         
         self.data_array = data_array2
         self.lab_data = lab_data2
+        
+        self.max_size = max_array_size
 
     def __len__(self):
         return len(self.data_array) // self.batch_size
@@ -140,11 +158,6 @@ def target_pitch_train_tpu_main(gen_targets_dir, model_file_path, early_stopping
         model.add(Bidirectional(LSTM(128, return_sequences=True), merge_mode='ave', input_shape=(shape0, 128), name='pitch_blstm0'))
         model.add(Reshape((shape0 * 2, 64), name='pitch_split0'))
         model.add(Bidirectional(LSTM(64, return_sequences=True), merge_mode='ave', name='pitch_blstm1'))
-        model.add(Reshape((shape0 * 4, 32), name='pitch_split1'))
-        model.add(Bidirectional(LSTM(32, return_sequences=True), merge_mode='ave', name='pitch_blstm2'))
-        model.add(Reshape((shape0 * 8, 16), name='pitch_split2'))
-        model.add(Bidirectional(LSTM(16, return_sequences=True), merge_mode='ave', name='pitch_blstm3'))
-        model.add(Reshape((shape0 * 2, 64), name='pitch_concat0'))
         model.add(Dense(1, name='pitch_dense_f'))
         model.add(Activation('relu', name='pitch_relu_f'))
         model.summary()

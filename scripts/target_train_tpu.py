@@ -6,6 +6,7 @@ from tensorflow.keras.layers import Dense, Activation, Bidirectional, LSTM, Resh
 from tensorflow.keras import backend as K
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 from tensorflow.keras.utils import Sequence
+from tensorflow.keras import losses
 import os
 import glob
 import struct
@@ -15,6 +16,21 @@ import random
 import math
 import tensorflow as tf
 from tensorflow.contrib.tpu.python.tpu import keras_support
+
+
+def circle_loss(y_true, y_pred):
+    dot = K.sum(y_true * y_pred, axis=-1)
+    y_true_len = K.sqrt(K.sum(K.square(y_true), axis=-1))
+    y_pred_len = K.sqrt(K.sum(K.square(y_pred), axis=-1))
+    angle_raw = tf.acos(dot / (y_true_len * y_pred_len + K.epsilon() * 1000.0))
+    angle = K.switch(K.less(angle_raw, math.pi), angle_raw, angle_raw - 2.0 * math.pi)
+    y_scale = y_true_len / (y_pred_len + K.epsilon() * 1000.0)
+    diff_len = 1.0 - y_scale
+    t_len = diff_len * angle * 0.5
+    square_x = K.square(angle - t_len)
+    square_y = K.square(diff_len) - K.square(t_len)
+    losses = square_x + square_y
+    return K.mean(losses, axis=-1)
 
 
 class VoiceGeneratorTargetTpu(Sequence):
@@ -35,14 +51,17 @@ class VoiceGeneratorTargetTpu(Sequence):
         
         self.max_size = max_size
         
+        self.reverse = False
+        
         self.get_input_voices()
 
     @staticmethod
     def get_input_files(dir_path):
         input_voices_list = []
-        input_voices = glob.glob(dir_path + '/*.voice')
+        input_voices = glob.glob(dir_path + '/*_nor.voice')
         for input_voice in input_voices:
             name, _ = os.path.splitext(input_voice)
+            name = name[:-4]
             input_voices_list.append(name)
         return sorted(input_voices_list)
 
@@ -63,19 +82,28 @@ class VoiceGeneratorTargetTpu(Sequence):
                 self.index = 0
                 if self.train:
                     random.shuffle(self.input_files)
-                if self.length is None:
-                    break
+                if self.reverse == False:
+                    self.reverse = True
+                else:
+                    self.reverse = False
+                    if self.length is None:
+                        break
             input_voice = self.input_files[self.index]
         
             name = os.path.basename(input_voice)
             dir_name = os.path.dirname(input_voice)
             
-            file_data = open(dir_name + '/' + name + '.voice', 'rb').read()
+            if self.reverse == False:
+                rev_str = '_nor'
+            else:
+                rev_str = '_rev'
+            
+            file_data = open(dir_name + '/' + name + rev_str + '.voice', 'rb').read()
             data_array = [None for _ in range(len(file_data) // (4 * 129))]
             for loop in range(len(file_data) // (4 * 129)):
                 data_array[loop] = list(struct.unpack('<129f', file_data[loop * 4 * 129:(loop + 1) * 4 * 129]))
             
-            file_data = open(dir_name + '/' + name + '.mcep', 'rb').read()
+            file_data = open(dir_name + '/' + name + rev_str + '.mcep', 'rb').read()
             lab_data = [None for _ in range(len(file_data) // (4 * 21 * 8) * 8)]
             for loop in range(len(file_data) // (4 * 21 * 8)):
                 for loop2 in range(8):
@@ -111,6 +139,8 @@ class VoiceGeneratorTargetTpu(Sequence):
         
         self.data_array = data_array2
         self.lab_data = lab_data2
+        
+        self.max_size = max_array_size
 
     def __len__(self):
         return len(self.data_array) // self.batch_size
@@ -144,11 +174,11 @@ def target_train_tpu_main(gen_targets_dir, model_file_path, early_stopping_patie
         model.add(Bidirectional(LSTM(16, return_sequences=True), merge_mode='ave', name='target_blstm3'))
         model.add(Dense(20, name='target_dense_f'))
         model.summary()
-        model.compile(loss='mean_squared_error', optimizer=tf.train.AdamOptimizer())
+        model.compile(loss=circle_loss, optimizer=tf.train.AdamOptimizer())
     else:
         model = load_model(retrain_file)
         if retrain_do_compile:
-            model.compile(loss='mean_squared_error', optimizer=tf.train.AdamOptimizer())
+            model.compile(loss=circle_loss, optimizer=tf.train.AdamOptimizer())
     
     tpu_grpc_url = 'grpc://' + os.environ['COLAB_TPU_ADDR']
     tpu_cluster_resolver = tf.contrib.cluster_resolver.TPUClusterResolver(tpu_grpc_url)

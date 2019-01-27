@@ -13,12 +13,7 @@ def target_pitch_train_tpu_convert_main(input_file, output_file):
     config['layers'][0]['config']['layer']['config']['kernel_initializer'] = 'zeros'
     config['layers'][1]['config']['target_shape'] = (-1, 64)
     config['layers'][2]['config']['layer']['config']['kernel_initializer'] = 'zeros'
-    config['layers'][3]['config']['target_shape'] = (-1, 32)
-    config['layers'][4]['config']['layer']['config']['kernel_initializer'] = 'zeros'
-    config['layers'][5]['config']['target_shape'] = (-1, 16)
-    config['layers'][6]['config']['layer']['config']['kernel_initializer'] = 'zeros'
-    config['layers'][7]['config']['target_shape'] = (-1, 64)
-    config['layers'][8]['config']['kernel_initializer'] = 'zeros'
+    config['layers'][3]['config']['kernel_initializer'] = 'zeros'
     
     model = Sequential.from_config(config)
     

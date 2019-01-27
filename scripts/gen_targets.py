@@ -40,48 +40,57 @@ def gen_targets_main(input_voices_dir='targets', gen_dir_name='gen_targets', zip
         name, _ = os.path.splitext(input_voice)
         name = ('_' + name).replace('/', '_').replace('\\', '_')
         
-        if os.name == 'nt':
-            subprocess.call('sox "' + input_voice + '" -e signed-integer -c 1 -b 16 -r 16000 -L tmp\\tmp.raw', shell=True)
-        else:
-            subprocess.call('sox "' + input_voice + '" -e signed-integer -c 1 -b 16 -r 16000 -L tmp/tmp.raw', shell=True)
+        subprocess.call('sox "' + input_voice + '" -e signed-integer -c 1 -b 16 -r 16000 -L tmp/tmp.raw', shell=True)
         for cut_loop in range(16):
-            if os.name == 'nt':
-                subprocess.call('bin\\sptk\\x2x +sf < tmp\\tmp.raw | bin\\sptk\\bcut -s ' + str(cut_loop * 800 // 16) + ' > tmp\\tmp.bcut', shell=True)
-                subprocess.call('bin\\sptk\\frame -l 800 -p 100 < tmp\\tmp.bcut | bin\\sptk\\mfcc -l 800 -f 16 -m 12 -n 20 -a 0.97 -E | bin\\sptk\\delta -m 12 -d -0.5 0 0.5 -d 0.25 0 -0.5 0 0.25 > tmp\\tmp.mfcc', shell=True)
-                subprocess.call('bin\\sptk\\pitch -a 2 -H 600 -p 400 < tmp\\tmp.bcut > "' + gen_dir_name + '\\' + name + '_' + str(cut_loop) + '.pitch"', shell=True)
-                subprocess.call('bin\\sptk\\frame -l 512 -p 100 < tmp\\tmp.bcut | bin\\sptk\\window -l 512 -L 512 | bin\\sptk\\mcep -l 512 -m 20 -a 0.42 -e 1 > "' + gen_dir_name + '\\' + name + '_' + str(cut_loop) + '.mcep"', shell=True)
-            else:
-                subprocess.call('x2x +sf < tmp/tmp.raw | bcut -s ' + str(cut_loop * 800 // 16) + ' > tmp/tmp.bcut', shell=True)
-                subprocess.call('frame -l 800 -p 100 < tmp/tmp.bcut | mfcc -l 800 -f 16 -m 12 -n 20 -a 0.97 -E | delta -m 12 -d -0.5 0 0.5 -d 0.25 0 -0.5 0 0.25 > tmp/tmp.mfcc', shell=True)
-                subprocess.call('pitch -a 2 -H 600 -p 400 < tmp/tmp.bcut > "' + gen_dir_name + '/' + name + '_' + str(cut_loop) + '.pitch"', shell=True)
-                subprocess.call('frame -l 512 -p 100 < tmp/tmp.bcut | window -l 512 -L 512 | mcep -l 512 -m 20 -a 0.42 -e 1 > "' + gen_dir_name + '/' + name + '_' + str(cut_loop) + '.mcep"', shell=True)
-            
-            pitch_error = False
-            pitch_data = open(gen_dir_name + '/' + name + '_' + str(cut_loop) + '.pitch', 'rb').read()
-            for loop in range(len(pitch_data) // 4):
-                if struct.unpack('<f', pitch_data[loop * 4:(loop + 1) * 4])[0] > 16000.0 / 60.0:
-                    pitch_error = True
-                    break
-            if pitch_error:
-                os.remove(gen_dir_name + '/' + name + '_' + str(cut_loop) + '.pitch')
-                os.remove(gen_dir_name + '/' + name + '_' + str(cut_loop) + '.mcep')
-                continue
-            
-            mfcc = []
-            mfcc_data = open('tmp/tmp.mfcc', 'rb').read()
-            for loop in range(len(mfcc_data) // (4 * 39 * 8)):
-                for loop2 in range(8):
-                    mfcc.append(list(struct.unpack('<39f', mfcc_data[(loop * 8 + loop2) * 4 * 39:(loop * 8 + loop2 + 1) * 4 * 39])))
-            mfcc_np = np.array([mfcc], dtype='float64')
-            result_np = model_voice.predict(mfcc_np)
-            
-            write_file = open(gen_dir_name + '/' + name + '_' + str(cut_loop) + '.voice', 'wb')
-            for loop in range(result_np.shape[1]):
-                result = result_np[0, loop, :]
-                for val in result:
-                    write_file.write(struct.pack('<f', val))
-                write_file.write(pitch_data[loop * 2 * 4:(loop * 2 + 1) * 4])
-            write_file.close()
+            for reverse in [False, True]:
+                if reverse == False:
+                    subprocess.call('x2x +sf < tmp/tmp.raw | bcut -s ' + str(cut_loop * 800 // 16) + ' > tmp/tmp.bcut', shell=True)
+                    subprocess.call('frame -l 800 -p 100 < tmp/tmp.bcut | mfcc -l 800 -f 16 -m 12 -n 20 -a 0.97 -E | delta -m 12 -d -0.5 0 0.5 -d 0.25 0 -0.5 0 0.25 > tmp/tmp.mfcc', shell=True)
+                    subprocess.call('pitch -a 2 -H 600 -p 400 < tmp/tmp.bcut > "' + gen_dir_name + '/' + name + '_' + str(cut_loop) + '_nor.pitch"', shell=True)
+                    subprocess.call('frame -l 512 -p 100 < tmp/tmp.bcut | window -l 512 -L 512 | mcep -l 512 -m 20 -a 0.42 -e 1 > "' + gen_dir_name + '/' + name + '_' + str(cut_loop) + '_nor.mcep"', shell=True)
+                else:
+                    subprocess.call('x2x +sf < tmp/tmp.raw | sopr -m -1.0 | bcut -s ' + str(cut_loop * 800 // 16) + ' > tmp/tmp.bcut', shell=True)
+                    subprocess.call('frame -l 800 -p 100 < tmp/tmp.bcut | mfcc -l 800 -f 16 -m 12 -n 20 -a 0.97 -E | delta -m 12 -d -0.5 0 0.5 -d 0.25 0 -0.5 0 0.25 > tmp/tmp.mfcc', shell=True)
+                    subprocess.call('pitch -a 2 -H 600 -p 400 < tmp/tmp.bcut > "' + gen_dir_name + '/' + name + '_' + str(cut_loop) + '_rev.pitch"', shell=True)
+                    subprocess.call('frame -l 512 -p 100 < tmp/tmp.bcut | window -l 512 -L 512 | mcep -l 512 -m 20 -a 0.42 -e 1 > "' + gen_dir_name + '/' + name + '_' + str(cut_loop) + '_rev.mcep"', shell=True)
+                
+                pitch_error = False
+                if reverse == False:
+                    pitch_data = open(gen_dir_name + '/' + name + '_' + str(cut_loop) + '_nor.pitch', 'rb').read()
+                else:
+                    pitch_data = open(gen_dir_name + '/' + name + '_' + str(cut_loop) + '_rev.pitch', 'rb').read()
+                for loop in range(len(pitch_data) // 4):
+                    if struct.unpack('<f', pitch_data[loop * 4:(loop + 1) * 4])[0] > 16000.0 / 60.0:
+                        pitch_error = True
+                        break
+                if pitch_error:
+                    if reverse == False:
+                        os.remove(gen_dir_name + '/' + name + '_' + str(cut_loop) + '_nor.pitch')
+                        os.remove(gen_dir_name + '/' + name + '_' + str(cut_loop) + '_nor.mcep')
+                    else:
+                        os.remove(gen_dir_name + '/' + name + '_' + str(cut_loop) + '_rev.pitch')
+                        os.remove(gen_dir_name + '/' + name + '_' + str(cut_loop) + '_rev.mcep')
+                    continue
+                
+                result_list = []
+                mfcc_data = open('tmp/tmp.mfcc', 'rb').read()
+                for loop in range(len(mfcc_data) // (4 * 39 * 8)):
+                    mfcc = []
+                    for loop2 in range(8):
+                        mfcc.append(list(struct.unpack('<39f', mfcc_data[(loop * 8 + loop2) * 4 * 39:(loop * 8 + loop2 + 1) * 4 * 39])))
+                    mfcc_np = np.array([mfcc], dtype='float64')
+                    result_np = model_voice.predict(mfcc_np)
+                    result_list.append(result_np[0, 0, :])
+                
+                if reverse == False:
+                    write_file = open(gen_dir_name + '/' + name + '_' + str(cut_loop) + '_nor.voice', 'wb')
+                else:
+                    write_file = open(gen_dir_name + '/' + name + '_' + str(cut_loop) + '_rev.voice', 'wb')
+                for result in result_list:
+                    for val in result:
+                        write_file.write(struct.pack('<f', val))
+                    write_file.write(pitch_data[loop * 2 * 4:(loop * 2 + 1) * 4])
+                write_file.close()
         
     if zip_name is not None:
         shutil.make_archive(zip_name, 'zip', root_dir=gen_dir_name)
