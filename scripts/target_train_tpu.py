@@ -6,7 +6,7 @@ from tensorflow.keras.layers import Dense, Activation, Bidirectional, LSTM, Resh
 from tensorflow.keras import backend as K
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 from tensorflow.keras.utils import Sequence
-from tensorflow.keras import losses
+from tensorflow.keras.initializers import VarianceScaling, Orthogonal
 import os
 import glob
 import struct
@@ -22,9 +22,9 @@ def circle_loss(y_true, y_pred):
     dot = K.sum(y_true * y_pred, axis=-1)
     y_true_len = K.sqrt(K.sum(K.square(y_true), axis=-1))
     y_pred_len = K.sqrt(K.sum(K.square(y_pred), axis=-1))
-    angle_raw = tf.acos(dot / (y_true_len * y_pred_len + K.epsilon() * 1000.0))
+    angle_raw = tf.acos(dot / (y_true_len * y_pred_len + K.epsilon()))
     angle = K.switch(K.less(angle_raw, math.pi), angle_raw, angle_raw - 2.0 * math.pi)
-    y_scale = y_true_len / (y_pred_len + K.epsilon() * 1000.0)
+    y_scale = y_true_len / (y_pred_len + K.epsilon())
     diff_len = 1.0 - y_scale
     t_len = diff_len * angle * 0.5
     square_x = K.square(angle - t_len)

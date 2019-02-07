@@ -35,7 +35,9 @@ def gen_targets_main(input_voices_dir='targets', gen_dir_name='gen_targets', zip
     while model_voice.layers[-1].name != 'voice_blstm_out':
         model_voice.pop()
     
-    for input_voice in input_voices:
+    for input_voice_index, input_voice in enumerate(input_voices):
+    
+        print('\r音声ファイルの解析中...(' + str(input_voice_index) + '/' + str(len(input_voices)) + ')', end='')
         
         name, _ = os.path.splitext(input_voice)
         name = ('_' + name).replace('/', '_').replace('\\', '_')
@@ -74,24 +76,26 @@ def gen_targets_main(input_voices_dir='targets', gen_dir_name='gen_targets', zip
                 
                 result_list = []
                 mfcc_data = open('tmp/tmp.mfcc', 'rb').read()
+                mfcc = []
                 for loop in range(len(mfcc_data) // (4 * 39 * 8)):
-                    mfcc = []
                     for loop2 in range(8):
                         mfcc.append(list(struct.unpack('<39f', mfcc_data[(loop * 8 + loop2) * 4 * 39:(loop * 8 + loop2 + 1) * 4 * 39])))
-                    mfcc_np = np.array([mfcc], dtype='float64')
-                    result_np = model_voice.predict(mfcc_np)
-                    result_list.append(result_np[0, 0, :])
+                mfcc_np = np.array([mfcc], dtype='float64')
+                result_np = model_voice.predict(mfcc_np)
+                results = result_np[0, :, :]
                 
                 if reverse == False:
                     write_file = open(gen_dir_name + '/' + name + '_' + str(cut_loop) + '_nor.voice', 'wb')
                 else:
                     write_file = open(gen_dir_name + '/' + name + '_' + str(cut_loop) + '_rev.voice', 'wb')
-                for result in result_list:
-                    for val in result:
+                for loop in range(results.shape[0]):
+                    for val in results[loop, :]:
                         write_file.write(struct.pack('<f', val))
                     write_file.write(pitch_data[loop * 2 * 4:(loop * 2 + 1) * 4])
                 write_file.close()
-        
+    
+    print('')
+    
     if zip_name is not None:
         shutil.make_archive(zip_name, 'zip', root_dir=gen_dir_name)
 

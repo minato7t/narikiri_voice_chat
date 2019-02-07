@@ -2,10 +2,13 @@
 # -*- coding: utf-8 -*-
 
 from tensorflow.keras.models import Sequential, load_model
+import json
 
 
-def target_train_tpu_convert_main(input_file, output_file):
+def target_train_tpu_convert_main(input_file, output_weight_file, output_json_file):
     input_model = load_model(input_file)
+    
+    input_model.save_weights(output_weight_file)
     
     config = input_model.get_config()
     
@@ -20,10 +23,17 @@ def target_train_tpu_convert_main(input_file, output_file):
     config['layers'][7]['config']['kernel_initializer'] = 'zeros'
     
     model = Sequential.from_config(config)
-    
-    model.set_weights(input_model.get_weights())
-    
-    model.save(output_file)
+    json_dic = json.loads(model.to_json())
+    del json_dic['config']['layers'][0]['config']['layer']['config']['time_major']
+    del json_dic['config']['layers'][0]['config']['layer']['config']['zero_output_for_mask']
+    del json_dic['config']['layers'][2]['config']['layer']['config']['time_major']
+    del json_dic['config']['layers'][2]['config']['layer']['config']['zero_output_for_mask']
+    del json_dic['config']['layers'][4]['config']['layer']['config']['time_major']
+    del json_dic['config']['layers'][4]['config']['layer']['config']['zero_output_for_mask']
+    del json_dic['config']['layers'][6]['config']['layer']['config']['time_major']
+    del json_dic['config']['layers'][6]['config']['layer']['config']['zero_output_for_mask']
+    with open(output_json_file, 'w') as f:
+        json.dump(json_dic, f)
 
 
 if __name__ == '__main__':
