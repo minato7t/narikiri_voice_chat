@@ -174,11 +174,11 @@ def target_train_tpu_main(gen_targets_dir, model_file_path, early_stopping_patie
         model.add(Bidirectional(LSTM(16, return_sequences=True), merge_mode='ave', name='target_blstm3'))
         model.add(Dense(20, name='target_dense_f'))
         model.summary()
-        model.compile(loss=circle_loss, optimizer=tf.train.AdamOptimizer())
+        model.compile(loss='mse', optimizer=tf.train.AdamOptimizer())
     else:
         model = load_model(retrain_file)
         if retrain_do_compile:
-            model.compile(loss=circle_loss, optimizer=tf.train.AdamOptimizer())
+            model.compile(loss='mse', optimizer=tf.train.AdamOptimizer())
     
     tpu_grpc_url = 'grpc://' + os.environ['COLAB_TPU_ADDR']
     tpu_cluster_resolver = tf.contrib.cluster_resolver.TPUClusterResolver(tpu_grpc_url)
