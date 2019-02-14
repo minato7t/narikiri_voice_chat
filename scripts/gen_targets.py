@@ -48,12 +48,12 @@ def gen_targets_main(input_voices_dir='targets', gen_dir_name='gen_targets', zip
                 if reverse == False:
                     subprocess.call('x2x +sf < tmp/tmp.raw | bcut -s ' + str(cut_loop * 800 // 16) + ' > tmp/tmp.bcut', shell=True)
                     subprocess.call('frame -l 800 -p 100 < tmp/tmp.bcut | mfcc -l 800 -f 16 -m 12 -n 20 -a 0.97 -E | delta -m 12 -d -0.5 0 0.5 -d 0.25 0 -0.5 0 0.25 > tmp/tmp.mfcc', shell=True)
-                    subprocess.call('pitch -a 2 -H 600 -p 400 < tmp/tmp.bcut > "' + gen_dir_name + '/' + name + '_' + str(cut_loop) + '_nor.pitch"', shell=True)
+                    subprocess.call('pitch -a 2 -H 1000 -p 400 < tmp/tmp.bcut > "' + gen_dir_name + '/' + name + '_' + str(cut_loop) + '_nor.pitch"', shell=True)
                     subprocess.call('frame -l 512 -p 100 < tmp/tmp.bcut | window -l 512 -L 512 | mcep -l 512 -m 20 -a 0.42 -e 1 > "' + gen_dir_name + '/' + name + '_' + str(cut_loop) + '_nor.mcep"', shell=True)
                 else:
                     subprocess.call('x2x +sf < tmp/tmp.raw | sopr -m -1.0 | bcut -s ' + str(cut_loop * 800 // 16) + ' > tmp/tmp.bcut', shell=True)
                     subprocess.call('frame -l 800 -p 100 < tmp/tmp.bcut | mfcc -l 800 -f 16 -m 12 -n 20 -a 0.97 -E | delta -m 12 -d -0.5 0 0.5 -d 0.25 0 -0.5 0 0.25 > tmp/tmp.mfcc', shell=True)
-                    subprocess.call('pitch -a 2 -H 600 -p 400 < tmp/tmp.bcut > "' + gen_dir_name + '/' + name + '_' + str(cut_loop) + '_rev.pitch"', shell=True)
+                    subprocess.call('pitch -a 2 -H 1000 -p 400 < tmp/tmp.bcut > "' + gen_dir_name + '/' + name + '_' + str(cut_loop) + '_rev.pitch"', shell=True)
                     subprocess.call('frame -l 512 -p 100 < tmp/tmp.bcut | window -l 512 -L 512 | mcep -l 512 -m 20 -a 0.42 -e 1 > "' + gen_dir_name + '/' + name + '_' + str(cut_loop) + '_rev.mcep"', shell=True)
                 
                 pitch_error = False

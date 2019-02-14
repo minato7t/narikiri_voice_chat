@@ -6,7 +6,6 @@ from tensorflow.keras.layers import Dense, Activation, Bidirectional, LSTM, Resh
 from tensorflow.keras import backend as K
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 from tensorflow.keras.utils import Sequence
-from tensorflow.keras.initializers import VarianceScaling, Orthogonal
 import os
 import glob
 import struct
@@ -34,7 +33,7 @@ def circle_loss(y_true, y_pred):
 
 
 class VoiceGeneratorTargetTpu(Sequence):
-    def __init__(self, dir_path, val_file, batch_size, length=None, train=True, max_size=None):
+    def __init__(self, dir_path, val_file, batch_size, length=None, train=True, max_size=None, train_reverse_rate=0.0):
         self.length = length
         if self.length is None or self.length < 0:
             self.length = None
@@ -50,6 +49,7 @@ class VoiceGeneratorTargetTpu(Sequence):
             self.input_files = input_files[int(len(input_files) * (1.0 - val_file)) + 1:]
         
         self.max_size = max_size
+        self.train_reverse_rate = train_reverse_rate
         
         self.reverse = False
         
@@ -137,6 +137,13 @@ class VoiceGeneratorTargetTpu(Sequence):
         for loop in range(len(lab_data2)):
             lab_data2[loop].extend([[0.0 for _ in range(20)] for _ in range(max_array_size * 8 - len(lab_data2[loop]))])
         
+        for loop in range(len(lab_data2) // self.batch_size):
+            if random.random() < self.train_reverse_rate:
+                for lab in lab_data2[loop * self.batch_size:(loop + 1) * self.batch_size]:
+                    for lab2 in lab:
+                        for loop2 in range(len(lab2)):
+                            lab2[loop2] *= -1.0
+        
         self.data_array = data_array2
         self.lab_data = lab_data2
         
@@ -157,22 +164,26 @@ class VoiceGeneratorTargetTpu(Sequence):
         return batch_inputs, batch_targets
 
 
-def target_train_tpu_main(gen_targets_dir, model_file_path, early_stopping_patience=None, length=None, batch_size=1, period=1, retrain_file=None, retrain_do_compile=False):
-    gen = VoiceGeneratorTargetTpu(gen_targets_dir, 0.1, batch_size, length, train=True)
+def target_train_tpu_main(gen_targets_dir, model_file_path, early_stopping_patience=None, length=None, batch_size=1, period=1, retrain_file=None, retrain_do_compile=False, train_reverse_rate=0.0, base_model_file_path='target_common.h5'):
+    gen = VoiceGeneratorTargetTpu(gen_targets_dir, 0.1, batch_size, length, train=True, train_reverse_rate=train_reverse_rate)
     val_gen = VoiceGeneratorTargetTpu(gen_targets_dir, 0.1, batch_size, train=False, max_size=gen[0][0].shape[1])
     
     shape0 = gen[0][0].shape[1]
     
     if retrain_file is None:
-        model = Sequential(name='target_model')
-        model.add(Bidirectional(LSTM(128, return_sequences=True), merge_mode='ave', input_shape=(shape0, 129), name='target_blstm0'))
-        model.add(Reshape((shape0 * 2, 64), name='target_split0'))
-        model.add(Bidirectional(LSTM(64, return_sequences=True), merge_mode='ave', name='target_blstm1'))
-        model.add(Reshape((shape0 * 4, 32), name='target_split1'))
-        model.add(Bidirectional(LSTM(32, return_sequences=True), merge_mode='ave', name='target_blstm2'))
-        model.add(Reshape((shape0 * 8, 16), name='target_split2'))
-        model.add(Bidirectional(LSTM(16, return_sequences=True), merge_mode='ave', name='target_blstm3'))
-        model.add(Dense(20, name='target_dense_f'))
+        model = load_model(base_model_file_path)
+        config = model.get_config()
+        config['layers'][0]['config']['batch_input_shape'] = (None, shape0, 129)
+        config['layers'][2]['config']['target_shape'] = (shape0 * 2, 64)
+        config['layers'][4]['config']['target_shape'] = (shape0 * 4, 32)
+        config['layers'][6]['config']['target_shape'] = (shape0 * 8, 16)
+        model = Sequential.from_config(config)
+        model.load_weights(base_model_file_path, by_name=True)
+        model.layers[1].trainable = False
+        model.layers[3].trainable = False
+        model.layers[5].trainable = False
+        model.layers[7].trainable = False
+        model.layers[8].trainable = False
         model.summary()
         model.compile(loss='mse', optimizer=tf.train.AdamOptimizer())
     else:

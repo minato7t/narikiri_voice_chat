@@ -18,10 +18,9 @@ from tensorflow.contrib.tpu.python.tpu import keras_support
 
 
 def pitch_loss(y_true, y_pred):
-    switch_vals = K.switch(K.less(y_true, K.ones_like(y_true) * 16000.0 / 600.0), K.zeros_like(y_true), K.ones_like(y_true))
-    vals = K.sum(K.square(y_pred - y_true) * switch_vals, axis=-1)
-    count = K.sum(switch_vals, axis=-1) + K.epsilon() * 1000.0
-    return vals / count
+    switch_vals = K.switch(K.less(y_true, K.ones_like(y_true) * 16000.0 / 1000.0), K.zeros_like(y_true), K.ones_like(y_true))
+    vals = K.mean(K.square(y_pred - y_true) * switch_vals, axis=-1)
+    return vals
 
 
 class VoiceGeneratorTargetPitchTpu(Sequence):

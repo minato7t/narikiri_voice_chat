@@ -22,6 +22,5 @@ def convert_h5_to_pb_main(weight_file_path, json_file_path, pb_file_path, output
         dir_name, file_name = os.path.split(pb_file_path)
         tf.train.write_graph(converted_graph, dir_name, file_name, as_text=False)
 
-
 if __name__ == '__main__':
     convert_h5_to_pb_main(sys.argv[1], sys.argv[2], 'target_dense_f/BiasAdd')

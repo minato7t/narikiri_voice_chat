@@ -28,15 +28,10 @@ def make_nvm_main(input_voices_dir='targets', nvm_name='outputs/target.nvm'):
     
     for input_voice in input_voices:
         
-        if os.name == 'nt':
-            subprocess.call('sox "' + input_voice + '" -e signed-integer -c 1 -b 16 -r 16000 -L tmp\\tmp.raw', shell=True)
-        else:
-            subprocess.call('sox "' + input_voice + '" -e signed-integer -c 1 -b 16 -r 16000 -L tmp/tmp.raw', shell=True)
+        subprocess.call('sox "' + input_voice + '" -e signed-integer -c 1 -b 16 -r 16000 -L tmp/tmp.raw', shell=True)
+        
         for cut_loop in range(2):
-            if os.name == 'nt':
-                subprocess.call('bin\\sptk\\x2x +sf < tmp\\tmp.raw | bin\\sptk\\bcut -s ' + str(cut_loop * 800 // 2) + ' | bin\\sptk\\pitch -a 2 -H 600 -p 400 > tmp\\tmp.pitch', shell=True)
-            else:
-                subprocess.call('x2x +sf < tmp/tmp.raw | bcut -s ' + str(cut_loop * 800 // 2) + ' | pitch -a 2 -H 600 -p 400 > tmp/tmp.pitch', shell=True)
+            subprocess.call('x2x +sf < tmp/tmp.raw | bcut -s ' + str(cut_loop * 800 // 2) + ' | pitch -a 2 -H 1000 -p 400 > tmp/tmp.pitch', shell=True)
             
             pitch_data = open('tmp/tmp.pitch', 'rb').read()
             
@@ -49,12 +44,13 @@ def make_nvm_main(input_voices_dir='targets', nvm_name='outputs/target.nvm'):
     pitch_ave /= pitch_count
 
     write_file = open(nvm_name, 'wb')
-    write_file.write(struct.pack('<i', 3))
+    write_file.write(struct.pack('<i', 4))
     write_file.write(struct.pack('<i', 100))
     write_file.write(struct.pack('<f', pitch_ave))
     write_file.write(struct.pack('<i', 512))
     write_file.write(struct.pack('<i', 800))
     write_file.write(struct.pack('<i', 400))
+    write_file.write(struct.pack('<i', 1000))
     write_file.close()
 
 
