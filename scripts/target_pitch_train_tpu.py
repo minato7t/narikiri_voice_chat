@@ -146,25 +146,25 @@ class VoiceGeneratorTargetPitchTpu(Sequence):
         return batch_inputs, batch_targets
 
 
-def target_pitch_train_tpu_main(gen_targets_dir, model_file_path, early_stopping_patience=None, length=None, batch_size=1, period=1, retrain_file=None, retrain_do_compile=False):
+def target_pitch_train_tpu_main(gen_targets_dir, model_file_path, early_stopping_patience=None, length=None, batch_size=1, period=1, retrain_file=None, retrain_do_compile=False, base_model_file_path='pitch_common.h5', optimizer=tf.train.AdamOptimizer()):
     gen = VoiceGeneratorTargetPitchTpu(gen_targets_dir, 0.1, batch_size, length, train=True)
     val_gen = VoiceGeneratorTargetPitchTpu(gen_targets_dir, 0.1, batch_size, train=False, max_size=gen[0][0].shape[1])
     
     shape0 = gen[0][0].shape[1]
     
     if retrain_file is None:
-        model = Sequential(name='pitch_model')
-        model.add(Bidirectional(LSTM(128, return_sequences=True), merge_mode='ave', input_shape=(shape0, 128), name='pitch_blstm0'))
-        model.add(Reshape((shape0 * 2, 64), name='pitch_split0'))
-        model.add(Bidirectional(LSTM(64, return_sequences=True), merge_mode='ave', name='pitch_blstm1'))
-        model.add(Dense(1, name='pitch_dense_f'))
-        model.add(Activation('relu', name='pitch_relu_f'))
+        model = load_model(base_model_file_path)
+        config = model.get_config()
+        config['layers'][0]['config']['batch_input_shape'] = (None, shape0, 128)
+        config['layers'][4]['config']['target_shape'] = (shape0 * 2, 64)
+        model = Sequential.from_config(config)
+        model.load_weights(base_model_file_path, by_name=True)
         model.summary()
-        model.compile(loss=pitch_loss, optimizer=tf.train.AdamOptimizer())
+        model.compile(loss=pitch_loss, optimizer=optimizer)
     else:
         model = load_model(retrain_file)
         if retrain_do_compile:
-            model.compile(loss=pitch_loss, optimizer=tf.train.AdamOptimizer())
+            model.compile(loss=pitch_loss, optimizer=optimizer)
     
     tpu_grpc_url = 'grpc://' + os.environ['COLAB_TPU_ADDR']
     tpu_cluster_resolver = tf.contrib.cluster_resolver.TPUClusterResolver(tpu_grpc_url)

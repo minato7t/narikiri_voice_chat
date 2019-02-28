@@ -164,7 +164,7 @@ class VoiceGeneratorTargetTpu(Sequence):
         return batch_inputs, batch_targets
 
 
-def target_train_tpu_main(gen_targets_dir, model_file_path, early_stopping_patience=None, length=None, batch_size=1, period=1, retrain_file=None, retrain_do_compile=False, train_reverse_rate=0.0, base_model_file_path='target_common.h5'):
+def target_train_tpu_main(gen_targets_dir, model_file_path, early_stopping_patience=None, length=None, batch_size=1, period=1, retrain_file=None, retrain_do_compile=False, train_reverse_rate=0.0, base_model_file_path='target_common.h5', optimizer=tf.train.AdamOptimizer()):
     gen = VoiceGeneratorTargetTpu(gen_targets_dir, 0.1, batch_size, length, train=True, train_reverse_rate=train_reverse_rate)
     val_gen = VoiceGeneratorTargetTpu(gen_targets_dir, 0.1, batch_size, train=False, max_size=gen[0][0].shape[1])
     
@@ -174,22 +174,17 @@ def target_train_tpu_main(gen_targets_dir, model_file_path, early_stopping_patie
         model = load_model(base_model_file_path)
         config = model.get_config()
         config['layers'][0]['config']['batch_input_shape'] = (None, shape0, 129)
-        config['layers'][2]['config']['target_shape'] = (shape0 * 2, 64)
-        config['layers'][4]['config']['target_shape'] = (shape0 * 4, 32)
-        config['layers'][6]['config']['target_shape'] = (shape0 * 8, 16)
+        config['layers'][4]['config']['target_shape'] = (shape0 * 2, 64)
+        config['layers'][7]['config']['target_shape'] = (shape0 * 4, 32)
+        config['layers'][10]['config']['target_shape'] = (shape0 * 8, 16)
         model = Sequential.from_config(config)
         model.load_weights(base_model_file_path, by_name=True)
-        model.layers[1].trainable = False
-        model.layers[3].trainable = False
-        model.layers[5].trainable = False
-        model.layers[7].trainable = False
-        model.layers[8].trainable = False
         model.summary()
-        model.compile(loss='mse', optimizer=tf.train.AdamOptimizer())
+        model.compile(loss='mse', optimizer=optimizer)
     else:
         model = load_model(retrain_file)
         if retrain_do_compile:
-            model.compile(loss='mse', optimizer=tf.train.AdamOptimizer())
+            model.compile(loss='mse', optimizer=optimizer)
     
     tpu_grpc_url = 'grpc://' + os.environ['COLAB_TPU_ADDR']
     tpu_cluster_resolver = tf.contrib.cluster_resolver.TPUClusterResolver(tpu_grpc_url)
