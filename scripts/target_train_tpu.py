@@ -102,6 +102,11 @@ class VoiceGeneratorTargetTpu(Sequence):
             data_array = [None for _ in range(len(file_data) // (4 * 129))]
             for loop in range(len(file_data) // (4 * 129)):
                 data_array[loop] = list(struct.unpack('<129f', file_data[loop * 4 * 129:(loop + 1) * 4 * 129]))
+                data_array[loop].extend([0.0, 0.0])
+                if loop > 0:
+                    data_array[loop][129] = struct.unpack('<f', file_data[loop * 4 * 129 - 4:loop * 4 * 129])[0]
+                if loop + 1 < len(file_data) // (4 * 129):
+                    data_array[loop][130] = struct.unpack('<f', file_data[(loop + 2) * 4 * 129 - 4:(loop + 2) * 4 * 129])[0]
             
             file_data = open(dir_name + '/' + name + rev_str + '.mcep', 'rb').read()
             lab_data = [None for _ in range(len(file_data) // (4 * 21 * 8) * 8)]
@@ -132,7 +137,7 @@ class VoiceGeneratorTargetTpu(Sequence):
             self.index += 1
         
         for loop in range(len(data_array2)):
-            data_array2[loop].extend([[0.0 for _ in range(129)] for _ in range(max_array_size - len(data_array2[loop]))])
+            data_array2[loop].extend([[0.0 for _ in range(131)] for _ in range(max_array_size - len(data_array2[loop]))])
 
         for loop in range(len(lab_data2)):
             lab_data2[loop].extend([[0.0 for _ in range(20)] for _ in range(max_array_size * 8 - len(lab_data2[loop]))])
@@ -173,12 +178,22 @@ def target_train_tpu_main(gen_targets_dir, model_file_path, early_stopping_patie
     if retrain_file is None:
         model = load_model(base_model_file_path)
         config = model.get_config()
-        config['layers'][0]['config']['batch_input_shape'] = (None, shape0, 129)
+        config['layers'][0]['config']['batch_input_shape'] = (None, shape0, 131)
         config['layers'][4]['config']['target_shape'] = (shape0 * 2, 64)
         config['layers'][7]['config']['target_shape'] = (shape0 * 4, 32)
         config['layers'][10]['config']['target_shape'] = (shape0 * 8, 16)
         model = Sequential.from_config(config)
         model.load_weights(base_model_file_path, by_name=True)
+        '''
+        model.layers[2].trainable = False
+        model.layers[3].trainable = False
+        model.layers[5].trainable = False
+        model.layers[6].trainable = False
+        model.layers[8].trainable = False
+        model.layers[9].trainable = False
+        model.layers[11].trainable = False
+        model.layers[12].trainable = False
+        '''
         model.summary()
         model.compile(loss='mse', optimizer=optimizer)
     else:

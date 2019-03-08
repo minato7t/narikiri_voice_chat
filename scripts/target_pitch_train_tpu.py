@@ -90,6 +90,21 @@ class VoiceGeneratorTargetPitchTpu(Sequence):
             data_array = [None for _ in range(len(file_data) // (4 * 129))]
             for loop in range(len(file_data) // (4 * 129)):
                 data_array[loop] = list(struct.unpack('<128f', file_data[loop * 4 * 129:(loop + 1) * 4 * 129 - 4]))
+                data_array[loop].extend([0.0, 0.0, 0.0])
+                if struct.unpack('<f', file_data[(loop + 1) * 4 * 129 - 4:(loop + 1) * 4 * 129])[0] > 0.0:
+                    data_array[loop][128] = 1.0
+                else:
+                    data_array[loop][128] = -1.0
+                if loop > 0:
+                    if struct.unpack('<f', file_data[loop * 4 * 129 - 4:loop * 4 * 129])[0] > 0.0:
+                        data_array[loop][129] = 1.0
+                    else:
+                        data_array[loop][129] = -1.0
+                if loop + 1 < len(file_data) // (4 * 129):
+                    if struct.unpack('<f', file_data[(loop + 2) * 4 * 129 - 4:(loop + 2) * 4 * 129])[0] > 0.0:
+                        data_array[loop][130] = 1.0
+                    else:
+                        data_array[loop][130] = -1.0
             name, _ = os.path.splitext(os.path.basename(input_voice))
             dir_name = os.path.dirname(input_voice)
             file_data = open(dir_name + '/' + name + '.pitch', 'rb').read()
@@ -121,7 +136,7 @@ class VoiceGeneratorTargetPitchTpu(Sequence):
             self.index += 1
         
         for loop in range(len(data_array2)):
-            data_array2[loop].extend([[0.0 for _ in range(128)] for _ in range(max_array_size - len(data_array2[loop]))])
+            data_array2[loop].extend([[0.0 for _ in range(131)] for _ in range(max_array_size - len(data_array2[loop]))])
 
         for loop in range(len(lab_data2)):
             lab_data2[loop].extend([[0.0] for _ in range(max_array_size * 2 - len(lab_data2[loop]))])
@@ -155,7 +170,7 @@ def target_pitch_train_tpu_main(gen_targets_dir, model_file_path, early_stopping
     if retrain_file is None:
         model = load_model(base_model_file_path)
         config = model.get_config()
-        config['layers'][0]['config']['batch_input_shape'] = (None, shape0, 128)
+        config['layers'][0]['config']['batch_input_shape'] = (None, shape0, 131)
         config['layers'][4]['config']['target_shape'] = (shape0 * 2, 64)
         model = Sequential.from_config(config)
         model.load_weights(base_model_file_path, by_name=True)

@@ -12,7 +12,7 @@ def target_train_tpu_convert_main(input_file, output_weight_file, output_json_fi
     
     config = input_model.get_config()
     
-    config['layers'][0]['config']['batch_input_shape'] = (None, None, 129)
+    config['layers'][0]['config']['batch_input_shape'] = (None, None, 131)
     config['layers'][0]['config']['layer']['config']['kernel_initializer'] = 'zeros'
     config['layers'][1]['config']['kernel_initializer'] = 'zeros'
     config['layers'][2]['config']['layer']['config']['kernel_initializer'] = 'zeros'
