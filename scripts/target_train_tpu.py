@@ -5,7 +5,7 @@ from tensorflow.keras.models import Sequential, Model, load_model
 from tensorflow.keras.layers import Dense, Activation, Bidirectional, LSTM, Reshape
 from tensorflow.keras import backend as K
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
-from tensorflow.keras.utils import Sequence
+from tensorflow.keras.utils import Sequence, CustomObjectScope
 import os
 import glob
 import struct
@@ -16,24 +16,11 @@ import math
 import tensorflow as tf
 from tensorflow.contrib.tpu.python.tpu import keras_support
 
-
-def circle_loss(y_true, y_pred):
-    dot = K.sum(y_true * y_pred, axis=-1)
-    y_true_len = K.sqrt(K.sum(K.square(y_true), axis=-1))
-    y_pred_len = K.sqrt(K.sum(K.square(y_pred), axis=-1))
-    angle_raw = tf.acos(dot / (y_true_len * y_pred_len + K.epsilon()))
-    angle = K.switch(K.less(angle_raw, math.pi), angle_raw, angle_raw - 2.0 * math.pi)
-    y_scale = y_true_len / (y_pred_len + K.epsilon())
-    diff_len = 1.0 - y_scale
-    t_len = diff_len * angle * 0.5
-    square_x = K.square(angle - t_len)
-    square_y = K.square(diff_len) - K.square(t_len)
-    losses = square_x + square_y
-    return K.mean(losses, axis=-1)
+from scripts.layers import RandomLayer
 
 
 class VoiceGeneratorTargetTpu(Sequence):
-    def __init__(self, dir_path, val_file, batch_size, length=None, train=True, max_size=None, train_reverse_rate=0.0):
+    def __init__(self, dir_path, val_file, batch_size, length=None, train=True, max_size=None):
         self.length = length
         if self.length is None or self.length < 0:
             self.length = None
@@ -49,7 +36,6 @@ class VoiceGeneratorTargetTpu(Sequence):
             self.input_files = input_files[int(len(input_files) * (1.0 - val_file)) + 1:]
         
         self.max_size = max_size
-        self.train_reverse_rate = train_reverse_rate
         
         self.reverse = False
         
@@ -102,7 +88,7 @@ class VoiceGeneratorTargetTpu(Sequence):
             data_array = [None for _ in range(len(file_data) // (4 * 129))]
             for loop in range(len(file_data) // (4 * 129)):
                 data_array[loop] = list(struct.unpack('<129f', file_data[loop * 4 * 129:(loop + 1) * 4 * 129]))
-                data_array[loop].extend([0.0, 0.0])
+                data_array[loop].extend([0.0 for _ in range(10)])
                 if loop > 0:
                     data_array[loop][129] = struct.unpack('<f', file_data[loop * 4 * 129 - 4:loop * 4 * 129])[0]
                 if loop + 1 < len(file_data) // (4 * 129):
@@ -113,6 +99,8 @@ class VoiceGeneratorTargetTpu(Sequence):
             for loop in range(len(file_data) // (4 * 21 * 8)):
                 for loop2 in range(8):
                     lab_data[loop * 8 + loop2] = list(struct.unpack('<20f', file_data[(loop * 8 + loop2) * 4 * 21 + 4:(loop * 8 + loop2 + 1) * 4 * 21]))
+                    if loop < len(data_array):
+                        data_array[loop][131 + loop2] = list(struct.unpack('<f', file_data[(loop * 8 + loop2) * 4 * 21:(loop * 8 + loop2) * 4 * 21 + 4]))[0]
             
             while len(data_array) * 8 > len(lab_data):
                 data_array.pop()
@@ -137,17 +125,10 @@ class VoiceGeneratorTargetTpu(Sequence):
             self.index += 1
         
         for loop in range(len(data_array2)):
-            data_array2[loop].extend([[0.0 for _ in range(131)] for _ in range(max_array_size - len(data_array2[loop]))])
+            data_array2[loop].extend([[0.0 for _ in range(139)] for _ in range(max_array_size - len(data_array2[loop]))])
 
         for loop in range(len(lab_data2)):
             lab_data2[loop].extend([[0.0 for _ in range(20)] for _ in range(max_array_size * 8 - len(lab_data2[loop]))])
-        
-        for loop in range(len(lab_data2) // self.batch_size):
-            if random.random() < self.train_reverse_rate:
-                for lab in lab_data2[loop * self.batch_size:(loop + 1) * self.batch_size]:
-                    for lab2 in lab:
-                        for loop2 in range(len(lab2)):
-                            lab2[loop2] *= -1.0
         
         self.data_array = data_array2
         self.lab_data = lab_data2
@@ -169,58 +150,53 @@ class VoiceGeneratorTargetTpu(Sequence):
         return batch_inputs, batch_targets
 
 
-def target_train_tpu_main(gen_targets_dir, model_file_path, early_stopping_patience=None, length=None, batch_size=1, period=1, retrain_file=None, retrain_do_compile=False, train_reverse_rate=0.0, base_model_file_path='target_common.h5', optimizer=tf.train.AdamOptimizer()):
-    gen = VoiceGeneratorTargetTpu(gen_targets_dir, 0.1, batch_size, length, train=True, train_reverse_rate=train_reverse_rate)
+def target_train_tpu_main(gen_targets_dir, model_file_path, early_stopping_patience=None, length=None, batch_size=1, period=1, retrain_file=None, retrain_do_compile=False, base_model_file_path='target_common.h5', optimizer=tf.train.AdamOptimizer(), epochs=100000):
+    gen = VoiceGeneratorTargetTpu(gen_targets_dir, 0.1, batch_size, length, train=True)
     val_gen = VoiceGeneratorTargetTpu(gen_targets_dir, 0.1, batch_size, train=False, max_size=gen[0][0].shape[1])
     
     shape0 = gen[0][0].shape[1]
     
-    if retrain_file is None:
-        model = load_model(base_model_file_path)
-        config = model.get_config()
-        config['layers'][0]['config']['batch_input_shape'] = (None, shape0, 131)
-        config['layers'][4]['config']['target_shape'] = (shape0 * 2, 64)
-        config['layers'][7]['config']['target_shape'] = (shape0 * 4, 32)
-        config['layers'][10]['config']['target_shape'] = (shape0 * 8, 16)
-        model = Sequential.from_config(config)
-        model.load_weights(base_model_file_path, by_name=True)
-        '''
-        model.layers[2].trainable = False
-        model.layers[3].trainable = False
-        model.layers[5].trainable = False
-        model.layers[6].trainable = False
-        model.layers[8].trainable = False
-        model.layers[9].trainable = False
-        model.layers[11].trainable = False
-        model.layers[12].trainable = False
-        '''
-        model.summary()
-        model.compile(loss='mse', optimizer=optimizer)
-    else:
-        model = load_model(retrain_file)
-        if retrain_do_compile:
+    with CustomObjectScope({'RandomLayer': RandomLayer}):
+        if retrain_file is None:
+            model = load_model(base_model_file_path)
+            config = model.get_config()
+            config['layers'][0]['config']['batch_input_shape'] = (None, shape0, 139)
+            config['layers'][3]['config']['rate'] = 0.1
+            config['layers'][6]['config']['target_shape'] = (shape0 * 2, 64)
+            config['layers'][8]['config']['rate'] = 0.1
+            config['layers'][11]['config']['target_shape'] = (shape0 * 4, 32)
+            config['layers'][13]['config']['rate'] = 0.1
+            config['layers'][16]['config']['target_shape'] = (shape0 * 8, 16)
+            config['layers'][18]['config']['rate'] = 0.1
+            model = Sequential.from_config(config)
+            model.load_weights(base_model_file_path, by_name=True)
+            model.summary()
             model.compile(loss='mse', optimizer=optimizer)
-    
-    tpu_grpc_url = 'grpc://' + os.environ['COLAB_TPU_ADDR']
-    tpu_cluster_resolver = tf.contrib.cluster_resolver.TPUClusterResolver(tpu_grpc_url)
-    strategy = keras_support.TPUDistributionStrategy(tpu_cluster_resolver)
-    model = tf.contrib.tpu.keras_to_tpu_model(model, strategy=strategy)
-    
-    cp = ModelCheckpoint(filepath=model_file_path, monitor='val_loss', save_best_only=True, period=period)
-    
-    if early_stopping_patience is not None:
-        es = EarlyStopping(monitor='val_loss', patience=early_stopping_patience, verbose=0, mode='auto')
-        callbacks = [es, cp]
-    else:
-        callbacks = [cp]
-    
-    model.fit_generator(gen,
-        shuffle=True,
-        epochs=100000,
-        verbose=1,
-        callbacks=callbacks,
-        validation_data=val_gen
-    )
+        else:
+            model = load_model(retrain_file)
+            if retrain_do_compile:
+                model.compile(loss='mse', optimizer=optimizer)
+        
+        tpu_grpc_url = 'grpc://' + os.environ['COLAB_TPU_ADDR']
+        tpu_cluster_resolver = tf.contrib.cluster_resolver.TPUClusterResolver(tpu_grpc_url)
+        strategy = keras_support.TPUDistributionStrategy(tpu_cluster_resolver)
+        model = tf.contrib.tpu.keras_to_tpu_model(model, strategy=strategy)
+        
+        cp = ModelCheckpoint(filepath=model_file_path, monitor='val_loss', save_best_only=True, period=period)
+        
+        if early_stopping_patience is not None:
+            es = EarlyStopping(monitor='val_loss', patience=early_stopping_patience, verbose=0, mode='auto')
+            callbacks = [es, cp]
+        else:
+            callbacks = [cp]
+        
+        model.fit_generator(gen,
+            shuffle=True,
+            epochs=epochs,
+            verbose=1,
+            callbacks=callbacks,
+            validation_data=val_gen
+        )
 
 
 if __name__ == '__main__':

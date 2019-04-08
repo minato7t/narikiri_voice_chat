@@ -6,11 +6,28 @@ from keras import backend as K
 import os
 import sys
 from keras.models import model_from_json
+from keras.utils import CustomObjectScope
+from keras.layers import Layer
+import numpy as np
+
+
+class RandomLayer(Layer):
+    def __init__(self, rate, **kwargs):
+        super(RandomLayer, self).__init__(**kwargs)
+        self.rate = rate
+
+    def call(self, x, training=None):
+        return x
+
+    def get_config(self):
+        config = {'rate': self.rate}
+        base_config = super(RandomLayer, self).get_config()
+        return dict(list(base_config.items()) + list(config.items()))
 
 
 def convert_h5_to_pb_main(weight_file_path, json_file_path, pb_file_path, output_layer_name):
     graph = tf.Graph()
-    with graph.as_default(), tf.Session() as sess:
+    with graph.as_default(), tf.Session() as sess, CustomObjectScope({'RandomLayer': RandomLayer}):
         K.set_session(sess)
 
         json_string = open(json_file_path, 'r').read()
