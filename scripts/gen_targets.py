@@ -80,6 +80,14 @@ def gen_targets_main(input_voices_dir='targets', gen_dir_name='gen_targets', zip
                 for loop in range(len(mfcc_data) // (4 * 39 * 8)):
                     for loop2 in range(8):
                         mfcc.append(list(struct.unpack('<39f', mfcc_data[(loop * 8 + loop2) * 4 * 39:(loop * 8 + loop2 + 1) * 4 * 39])))
+                if len(mfcc) <= 0:
+                    if reverse == False:
+                        os.remove(gen_dir_name + '/' + name + '_' + str(cut_loop) + '_nor.pitch')
+                        os.remove(gen_dir_name + '/' + name + '_' + str(cut_loop) + '_nor.mcep')
+                    else:
+                        os.remove(gen_dir_name + '/' + name + '_' + str(cut_loop) + '_rev.pitch')
+                        os.remove(gen_dir_name + '/' + name + '_' + str(cut_loop) + '_rev.mcep')
+                    continue
                 mfcc_np = np.array([mfcc], dtype='float64')
                 result_np = model_voice.predict(mfcc_np)
                 results = result_np[0, :, :]
