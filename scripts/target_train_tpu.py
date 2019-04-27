@@ -20,7 +20,7 @@ from scripts.layers import RandomLayer
 
 
 class VoiceGeneratorTargetTpu(Sequence):
-    def __init__(self, dir_path, val_file, batch_size, length=None, train=True, max_size=None):
+    def __init__(self, dir_path, val_file, batch_size=None, length=None, train=True, max_size=None):
         self.length = length
         if self.length is None or self.length < 0:
             self.length = None
@@ -30,10 +30,11 @@ class VoiceGeneratorTargetTpu(Sequence):
         self.index = 0
         input_files = self.get_input_files(dir_path)
         if self.train:
-            self.input_files = input_files[:int(len(input_files) * (1.0 - val_file)) + 1]
+            self.input_files = input_files[:int(len(input_files) * (1.0 - val_file))]
             random.shuffle(self.input_files)
         else:
-            self.input_files = input_files[int(len(input_files) * (1.0 - val_file)) + 1:]
+            self.input_files = input_files[int(len(input_files) * (1.0 - val_file)):]
+            self.batch_size = None
         
         self.max_size = max_size
         
@@ -136,23 +137,33 @@ class VoiceGeneratorTargetTpu(Sequence):
         self.max_size = max_array_size
 
     def __len__(self):
-        return len(self.data_array) // self.batch_size
+        if self.batch_size is not None:
+            return len(self.data_array) // self.batch_size
+        else:
+            return 1
     
     def on_epoch_end(self):
         if self.length is not None:
             self.get_input_voices()
 
     def __getitem__(self, idx):
-        inputs = self.data_array[idx * self.batch_size:(idx + 1) * self.batch_size]
-        batch_inputs = np.array(inputs, dtype='float64')
-        targets = self.lab_data[idx * self.batch_size:(idx + 1) * self.batch_size]
-        batch_targets = np.array(targets, dtype='float64')
-        return batch_inputs, batch_targets
+        if self.batch_size is not None:
+            inputs = self.data_array[idx * self.batch_size:(idx + 1) * self.batch_size]
+            batch_inputs = np.array(inputs, dtype='float')
+            targets = self.lab_data[idx * self.batch_size:(idx + 1) * self.batch_size]
+            batch_targets = np.array(targets, dtype='float')
+            return batch_inputs, batch_targets
+        else:
+            inputs = self.data_array
+            batch_inputs = np.array(inputs, dtype='float')
+            targets = self.lab_data
+            batch_targets = np.array(targets, dtype='float')
+            return batch_inputs, batch_targets
 
 
 def target_train_tpu_main(gen_targets_dir, model_file_path, early_stopping_patience=None, length=None, batch_size=1, period=1, retrain_file=None, retrain_do_compile=False, base_model_file_path='target_common.h5', optimizer=tf.train.AdamOptimizer(), epochs=100000):
     gen = VoiceGeneratorTargetTpu(gen_targets_dir, 0.1, batch_size, length, train=True)
-    val_gen = VoiceGeneratorTargetTpu(gen_targets_dir, 0.1, batch_size, train=False, max_size=gen[0][0].shape[1])
+    val_gen = VoiceGeneratorTargetTpu(gen_targets_dir, 0.1, train=False, max_size=gen[0][0].shape[1])
     
     shape0 = gen[0][0].shape[1]
     
