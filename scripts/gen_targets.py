@@ -13,7 +13,7 @@ import numpy as np
 import sys
 
 
-def gen_targets_main(input_voices_dir='targets', gen_dir_name='gen_targets', zip_file_name=None):
+def gen_targets_main(input_voices_dir='targets', gen_dir_name='gen_targets', zip_file_name=None, cut_loop_length=16, reverse_flag=True):
     zip_name = None
     if zip_file_name is not None:
         zip_name, _ = os.path.splitext(zip_file_name)
@@ -43,8 +43,12 @@ def gen_targets_main(input_voices_dir='targets', gen_dir_name='gen_targets', zip
         name = ('_' + name).replace('/', '_').replace('\\', '_')
         
         subprocess.call('sox "' + input_voice + '" -e signed-integer -c 1 -b 16 -r 16000 -L tmp/tmp.raw', shell=True)
-        for cut_loop in range(16):
-            for reverse in [False, True]:
+        for cut_loop in range(cut_loop_length):
+            if reverse_flag:
+                reverse_list = [False, True]
+            else:
+                reverse_list = [False]
+            for reverse in reverse_list:
                 if reverse == False:
                     subprocess.call('x2x +sf < tmp/tmp.raw | bcut -s ' + str(cut_loop * 800 // 16) + ' > tmp/tmp.bcut', shell=True)
                     subprocess.call('frame -l 800 -p 100 < tmp/tmp.bcut | mfcc -l 800 -f 16 -m 12 -n 20 -a 0.97 -E | delta -m 12 -d -0.5 0 0.5 -d 0.25 0 -0.5 0 0.25 > tmp/tmp.mfcc', shell=True)
