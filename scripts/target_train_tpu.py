@@ -45,10 +45,9 @@ class VoiceGeneratorTargetTpu(Sequence):
     @staticmethod
     def get_input_files(dir_path):
         input_voices_list = []
-        input_voices = glob.glob(dir_path + '/*_nor.voice')
+        input_voices = glob.glob(dir_path + '/*.voice')
         for input_voice in input_voices:
             name, _ = os.path.splitext(input_voice)
-            name = name[:-4]
             input_voices_list.append(name)
         return sorted(input_voices_list)
 
@@ -80,12 +79,7 @@ class VoiceGeneratorTargetTpu(Sequence):
             name = os.path.basename(input_voice)
             dir_name = os.path.dirname(input_voice)
             
-            if self.reverse == False:
-                rev_str = '_nor'
-            else:
-                rev_str = '_rev'
-            
-            file_data = open(dir_name + '/' + name + rev_str + '.voice', 'rb').read()
+            file_data = open(dir_name + '/' + name + '.voice', 'rb').read()
             data_array = [None for _ in range(len(file_data) // (4 * 129))]
             for loop in range(len(file_data) // (4 * 129)):
                 data_array[loop] = list(struct.unpack('<129f', file_data[loop * 4 * 129:(loop + 1) * 4 * 129]))
@@ -95,7 +89,7 @@ class VoiceGeneratorTargetTpu(Sequence):
                 if loop + 1 < len(file_data) // (4 * 129):
                     data_array[loop][130] = struct.unpack('<f', file_data[(loop + 2) * 4 * 129 - 4:(loop + 2) * 4 * 129])[0]
             
-            file_data = open(dir_name + '/' + name + rev_str + '.mcep', 'rb').read()
+            file_data = open(dir_name + '/' + name + '.mcep', 'rb').read()
             lab_data = [None for _ in range(len(file_data) // (4 * 21 * 8) * 8)]
             for loop in range(len(file_data) // (4 * 21 * 8)):
                 for loop2 in range(8):

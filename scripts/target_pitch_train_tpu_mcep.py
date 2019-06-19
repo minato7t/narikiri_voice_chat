@@ -84,7 +84,6 @@ class VoiceGeneratorTargetPitchTpu(Sequence):
         input_voices = glob.glob(dir_path + '/*_nor.voice')
         for input_voice in input_voices:
             name, _ = os.path.splitext(input_voice)
-            name = name[:-4]
             input_voices_list.append(name)
         return sorted(input_voices_list)
 
@@ -116,12 +115,7 @@ class VoiceGeneratorTargetPitchTpu(Sequence):
                     if self.length is None:
                         break
             
-            if self.reverse == False:
-                rev_str = '_nor'
-            else:
-                rev_str = '_rev'
-            
-            input_voice = self.input_files[self.index] + rev_str + '.voice'
+            input_voice = self.input_files[self.index] + '.voice'
             
             file_data = open(input_voice, 'rb').read()
             data_array = [None for _ in range(len(file_data) // (4 * 129))]
@@ -143,7 +137,7 @@ class VoiceGeneratorTargetPitchTpu(Sequence):
                     else:
                         data_array[loop][130] = -1.0
             
-            file_data = open(self.input_files[self.index] + rev_str + '.mcep', 'rb').read()
+            file_data = open(self.input_files[self.index] + '.mcep', 'rb').read()
             for loop in range(len(file_data) // (4 * 21 * 8)):
                 for loop2 in range(8):
                     if loop < len(data_array):
