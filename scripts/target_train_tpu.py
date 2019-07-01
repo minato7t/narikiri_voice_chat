@@ -38,8 +38,6 @@ class VoiceGeneratorTargetTpu(Sequence):
         
         self.max_size = max_size
         
-        self.reverse = False
-        
         self.get_input_voices()
 
     @staticmethod
@@ -68,12 +66,8 @@ class VoiceGeneratorTargetTpu(Sequence):
                 self.index = 0
                 if self.train:
                     random.shuffle(self.input_files)
-                if self.reverse == False:
-                    self.reverse = True
-                else:
-                    self.reverse = False
-                    if self.length is None:
-                        break
+                if self.length is None:
+                    break
             input_voice = self.input_files[self.index]
         
             name = os.path.basename(input_voice)

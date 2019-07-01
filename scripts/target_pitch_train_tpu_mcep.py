@@ -74,14 +74,12 @@ class VoiceGeneratorTargetPitchTpu(Sequence):
         
         self.max_size = max_size
         
-        self.reverse = False
-        
         self.get_input_voices()
 
     @staticmethod
     def get_input_files(dir_path):
         input_voices_list = []
-        input_voices = glob.glob(dir_path + '/*_nor.voice')
+        input_voices = glob.glob(dir_path + '/*.voice')
         for input_voice in input_voices:
             name, _ = os.path.splitext(input_voice)
             input_voices_list.append(name)
@@ -108,12 +106,8 @@ class VoiceGeneratorTargetPitchTpu(Sequence):
                 self.index = 0
                 if self.train:
                     random.shuffle(self.input_files)
-                if self.reverse == False:
-                    self.reverse = True
-                else:
-                    self.reverse = False
-                    if self.length is None:
-                        break
+                if self.length is None:
+                    break
             
             input_voice = self.input_files[self.index] + '.voice'
             
