@@ -6,9 +6,12 @@ import zipfile
 
 
 def make_nvz_main(output_file, nvm_file, target_file, pitch_file):
-    files = [nvm_file, target_file, pitch_file]
-    
-    arc_names = ['target.nvm', 'target.pb', 'pitch.pb']
+    if pitch_file is not None:
+        files = [nvm_file, target_file, pitch_file]
+        arc_names = ['target.nvm', 'target.pb', 'pitch.pb']
+    else:
+        files = [nvm_file, target_file]
+        arc_names = ['target.nvm', 'target.pb']
     
     with zipfile.ZipFile(output_file, 'w', compression=zipfile.ZIP_DEFLATED) as new_zip:
         for file_loop in range(len(arc_names)):
