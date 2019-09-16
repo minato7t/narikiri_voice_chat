@@ -4,7 +4,7 @@
 from tensorflow.keras.models import Sequential, Model, load_model
 from tensorflow.keras.layers import Dense, Activation, Bidirectional, LSTM, Reshape
 from tensorflow.keras import backend as K
-from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
+from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, LearningRateScheduler
 from tensorflow.keras.utils import Sequence, CustomObjectScope
 from tensorflow.keras.optimizers import Adam
 import os
