@@ -59,6 +59,10 @@ def gen_targets_main(input_voices_dir='targets', gen_dir_name='gen_targets', zip
                     subprocess.call('frame -l 800 -p 100 < tmp/tmp.bcut | mfcc -l 800 -f 16 -m 12 -n 20 -a 0.97 -E | delta -m 12 -d -0.5 0 0.5 -d 0.25 0 -0.5 0 0.25 > tmp/tmp.mfcc', shell=True)
                     subprocess.call('frame -l 512 -p 100 < tmp/tmp.bcut | window -l 512 -L 512 | mcep -l 512 -m 20 -a 0.42 -e 1 > "' + gen_dir_name + '/' + name + '_' + str(cut_loop) + '_rev.mcep"', shell=True)
                 
+                data_raw = open('tmp/tmp.bcut', 'rb').read()
+                data_struct = struct.unpack('<' + str(len(data_raw) // 4) + 'f', data_raw)
+                data = np.array(data_struct, dtype='float') / 32768.0
+                
                 f0, _ = pw.harvest(data, 16000, 80.0, 1000.0, 6.25)
                 pitch = [0.0 for _ in range(f0.shape[0])]
                 for loop in range(f0.shape[0]):
