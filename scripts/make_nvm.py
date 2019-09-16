@@ -6,6 +6,8 @@ import glob
 import subprocess
 import struct
 import sys
+import pyworld as pw
+import numpy as np
 
 
 def make_nvm_main(input_voices_dir='targets', nvm_name='outputs/target.nvm'):
@@ -30,26 +32,27 @@ def make_nvm_main(input_voices_dir='targets', nvm_name='outputs/target.nvm'):
         
         subprocess.call('sox "' + input_voice + '" -e signed-integer -c 1 -b 16 -r 16000 -L tmp/tmp.raw', shell=True)
         
-        for cut_loop in range(2):
-            subprocess.call('x2x +sf < tmp/tmp.raw | bcut -s ' + str(cut_loop * 800 // 2) + ' | pitch -a 2 -H 1000 -p 400 > tmp/tmp.pitch', shell=True)
-            
-            pitch_data = open('tmp/tmp.pitch', 'rb').read()
-            
-            for loop in range(len(pitch_data) // 4):
-                ave_val = struct.unpack('<f', pitch_data[loop * 4:(loop + 1) * 4])[0]
-                if ave_val > 0.0:
-                    pitch_ave += ave_val
-                    pitch_count += 1
+        subprocess.call('x2x +sf < tmp/tmp.raw > tmp/tmp.float', shell=True)
+        
+        data_raw = open('tmp/tmp.float', 'rb').read()
+        data_struct = struct.unpack('<' + str(len(data_raw) // 4) + 'f', data_raw)
+        data = np.array(data_struct, dtype='float') / 32768.0
+        
+        f0, _ = pw.harvest(data, 16000, 80.0, 1000.0, 6.25)
+        for loop in range(f0.shape[0]):
+            if f0[loop] >= 80.0:
+                pitch_ave += 16000.0 / f0[loop]
+                pitch_count += 1
 
     pitch_ave /= pitch_count
 
     write_file = open(nvm_name, 'wb')
-    write_file.write(struct.pack('<i', 7))
+    write_file.write(struct.pack('<i', 8))
     write_file.write(struct.pack('<i', 100))
     write_file.write(struct.pack('<f', pitch_ave))
     write_file.write(struct.pack('<i', 512))
     write_file.write(struct.pack('<i', 800))
-    write_file.write(struct.pack('<i', 400))
+    write_file.write(struct.pack('<i', 100))
     write_file.write(struct.pack('<i', 1000))
     write_file.close()
 

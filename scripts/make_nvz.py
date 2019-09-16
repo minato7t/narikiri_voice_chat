@@ -5,7 +5,7 @@ import sys
 import zipfile
 
 
-def make_nvz_main(output_file, nvm_file, target_file, pitch_file):
+def make_nvz_main(output_file, nvm_file, target_file, pitch_file=None):
     if pitch_file is not None:
         files = [nvm_file, target_file, pitch_file]
         arc_names = ['target.nvm', 'target.pb', 'pitch.pb']

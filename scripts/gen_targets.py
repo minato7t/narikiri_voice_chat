@@ -11,6 +11,7 @@ import subprocess
 import struct
 import numpy as np
 import sys
+import pyworld as pw
 
 
 def gen_targets_main(input_voices_dir='targets', gen_dir_name='gen_targets', zip_file_name=None, cut_loop_length=16, reverse_flag=True):
@@ -52,31 +53,26 @@ def gen_targets_main(input_voices_dir='targets', gen_dir_name='gen_targets', zip
                 if reverse == False:
                     subprocess.call('x2x +sf < tmp/tmp.raw | bcut -s ' + str(cut_loop * 800 // 16) + ' > tmp/tmp.bcut', shell=True)
                     subprocess.call('frame -l 800 -p 100 < tmp/tmp.bcut | mfcc -l 800 -f 16 -m 12 -n 20 -a 0.97 -E | delta -m 12 -d -0.5 0 0.5 -d 0.25 0 -0.5 0 0.25 > tmp/tmp.mfcc', shell=True)
-                    subprocess.call('pitch -a 2 -H 1000 -p 400 < tmp/tmp.bcut > "' + gen_dir_name + '/' + name + '_' + str(cut_loop) + '_nor.pitch"', shell=True)
                     subprocess.call('frame -l 512 -p 100 < tmp/tmp.bcut | window -l 512 -L 512 | mcep -l 512 -m 20 -a 0.42 -e 1 > "' + gen_dir_name + '/' + name + '_' + str(cut_loop) + '_nor.mcep"', shell=True)
                 else:
                     subprocess.call('x2x +sf < tmp/tmp.raw | sopr -m -1.0 | bcut -s ' + str(cut_loop * 800 // 16) + ' > tmp/tmp.bcut', shell=True)
                     subprocess.call('frame -l 800 -p 100 < tmp/tmp.bcut | mfcc -l 800 -f 16 -m 12 -n 20 -a 0.97 -E | delta -m 12 -d -0.5 0 0.5 -d 0.25 0 -0.5 0 0.25 > tmp/tmp.mfcc', shell=True)
-                    subprocess.call('pitch -a 2 -H 1000 -p 400 < tmp/tmp.bcut > "' + gen_dir_name + '/' + name + '_' + str(cut_loop) + '_rev.pitch"', shell=True)
                     subprocess.call('frame -l 512 -p 100 < tmp/tmp.bcut | window -l 512 -L 512 | mcep -l 512 -m 20 -a 0.42 -e 1 > "' + gen_dir_name + '/' + name + '_' + str(cut_loop) + '_rev.mcep"', shell=True)
                 
-                pitch_error = False
-                if reverse == False:
-                    pitch_data = open(gen_dir_name + '/' + name + '_' + str(cut_loop) + '_nor.pitch', 'rb').read()
-                else:
-                    pitch_data = open(gen_dir_name + '/' + name + '_' + str(cut_loop) + '_rev.pitch', 'rb').read()
-                for loop in range(len(pitch_data) // 4):
-                    if struct.unpack('<f', pitch_data[loop * 4:(loop + 1) * 4])[0] > 16000.0 / 60.0:
-                        pitch_error = True
-                        break
-                if pitch_error:
-                    if reverse == False:
-                        os.remove(gen_dir_name + '/' + name + '_' + str(cut_loop) + '_nor.pitch')
-                        os.remove(gen_dir_name + '/' + name + '_' + str(cut_loop) + '_nor.mcep')
+                f0, _ = pw.harvest(data, 16000, 80.0, 1000.0, 6.25)
+                pitch = [0.0 for _ in range(f0.shape[0])]
+                for loop in range(f0.shape[0]):
+                    if f0[loop] >= 80.0:
+                        pitch[loop] = 16000.0 / f0[loop]
                     else:
-                        os.remove(gen_dir_name + '/' + name + '_' + str(cut_loop) + '_rev.pitch')
-                        os.remove(gen_dir_name + '/' + name + '_' + str(cut_loop) + '_rev.mcep')
-                    continue
+                        pitch[loop] = 0.0
+                
+                if reverse == False:
+                    write_file = open(gen_dir_name + '/' + name + '_' + str(cut_loop) + '_nor.pitch', 'wb')
+                else:
+                    write_file = open(gen_dir_name + '/' + name + '_' + str(cut_loop) + '_rev.pitch', 'wb')
+                write_file.write(struct.pack('<' + str(len(pitch)) + 'f', *pitch))
+                write_file.close()
                 
                 result_list = []
                 mfcc_data = open('tmp/tmp.mfcc', 'rb').read()
@@ -103,10 +99,10 @@ def gen_targets_main(input_voices_dir='targets', gen_dir_name='gen_targets', zip
                 for loop in range(results.shape[0]):
                     for val in results[loop, :]:
                         write_file.write(struct.pack('<f', val))
-                    write_file.write(pitch_data[loop * 2 * 4:(loop * 2 + 1) * 4])
+                    write_file.write(struct.pack('<f', pitch[loop * 8]))
                 write_file.close()
     
-    print('')
+    print('\r音声ファイルの解析完了')
     
     if zip_name is not None:
         shutil.make_archive(zip_name, 'zip', root_dir=gen_dir_name)

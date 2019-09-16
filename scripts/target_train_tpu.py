@@ -6,6 +6,7 @@ from tensorflow.keras.layers import Dense, Activation, Bidirectional, LSTM, Resh
 from tensorflow.keras import backend as K
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 from tensorflow.keras.utils import Sequence, CustomObjectScope
+from tensorflow.keras.optimizers import Adam
 import os
 import glob
 import struct
@@ -149,7 +150,9 @@ class VoiceGeneratorTargetTpu(Sequence):
             return batch_inputs, batch_targets
 
 
-def target_train_tpu_main(gen_targets_dir, model_file_path, early_stopping_patience=None, length=None, batch_size=1, period=1, retrain_file=None, retrain_do_compile=False, base_model_file_path='target_common.h5', optimizer=tf.train.AdamOptimizer(), epochs=100000):
+def target_train_tpu_main(gen_targets_dir, model_file_path, early_stopping_patience=None, length=None, batch_size=1, period=1, retrain_file=None, retrain_do_compile=False, base_model_file_path='target_common.h5', optimizer=Adam(), optimizer_lr=0.001, epochs=100000):
+    gc.collect()
+    
     gen = VoiceGeneratorTargetTpu(gen_targets_dir, 0.1, batch_size, length, train=True)
     val_gen = VoiceGeneratorTargetTpu(gen_targets_dir, 0.1, train=False, max_size=gen[0][0].shape[1])
     
@@ -183,11 +186,15 @@ def target_train_tpu_main(gen_targets_dir, model_file_path, early_stopping_patie
         
         cp = ModelCheckpoint(filepath=model_file_path, monitor='val_loss', save_best_only=True, period=period)
         
+        def lr_scheduler(epoch):
+            return optimizer_lr
+        scheduler = LearningRateScheduler(lr_scheduler)
+        
         if early_stopping_patience is not None:
             es = EarlyStopping(monitor='val_loss', patience=early_stopping_patience, verbose=0, mode='auto')
-            callbacks = [es, cp]
+            callbacks = [es, cp, scheduler]
         else:
-            callbacks = [cp]
+            callbacks = [cp, scheduler]
         
         model.fit_generator(gen,
             shuffle=True,
@@ -196,6 +203,8 @@ def target_train_tpu_main(gen_targets_dir, model_file_path, early_stopping_patie
             callbacks=callbacks,
             validation_data=val_gen
         )
+        
+        K.clear_session()
 
 
 if __name__ == '__main__':
