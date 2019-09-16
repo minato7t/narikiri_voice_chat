@@ -14,6 +14,7 @@ import numpy as np
 import sys
 import random
 import math
+import gc
 import tensorflow as tf
 from tensorflow.contrib.tpu.python.tpu import keras_support
 

@@ -71,13 +71,6 @@ def gen_targets_main(input_voices_dir='targets', gen_dir_name='gen_targets', zip
                     else:
                         pitch[loop] = 0.0
                 
-                if reverse == False:
-                    write_file = open(gen_dir_name + '/' + name + '_' + str(cut_loop) + '_nor.pitch', 'wb')
-                else:
-                    write_file = open(gen_dir_name + '/' + name + '_' + str(cut_loop) + '_rev.pitch', 'wb')
-                write_file.write(struct.pack('<' + str(len(pitch)) + 'f', *pitch))
-                write_file.close()
-                
                 result_list = []
                 mfcc_data = open('tmp/tmp.mfcc', 'rb').read()
                 mfcc = []
