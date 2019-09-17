@@ -154,13 +154,12 @@ class VoiceGeneratorTargetTpu(Sequence):
 def target_train_tpu_main(gen_targets_dir, model_file_path, early_stopping_patience=None, length=None, batch_size=1, period=1, retrain_file=None, retrain_do_compile=False, base_model_file_path='target_common.h5', optimizer=Adam(), optimizer_lr=0.001, epochs=100000):
     gc.collect()
     
-    gen = VoiceGeneratorTargetTpu(gen_targets_dir, 0.1, batch_size, length, train=True)
-    val_gen = VoiceGeneratorTargetTpu(gen_targets_dir, 0.1, train=False, max_size=gen[0][0].shape[1])
-    
-    shape0 = gen[0][0].shape[1]
-    
     with CustomObjectScope({'RandomLayer': RandomLayer}):
         if retrain_file is None:
+            gen = VoiceGeneratorTargetTpu(gen_targets_dir, 0.1, batch_size, length, train=True)
+            shape0 = gen[0][0].shape[1]
+            val_gen = VoiceGeneratorTargetTpu(gen_targets_dir, 0.1, train=False, max_size=shape0)
+            
             model = load_model(base_model_file_path)
             config = model.get_config()
             config['layers'][0]['config']['batch_input_shape'] = (None, shape0, 139)
@@ -175,10 +174,19 @@ def target_train_tpu_main(gen_targets_dir, model_file_path, early_stopping_patie
             model.load_weights(base_model_file_path, by_name=True)
             model.summary()
             model.compile(loss='mse', optimizer=optimizer)
+            
+            baseline = None
         else:
             model = load_model(retrain_file)
             if retrain_do_compile:
                 model.compile(loss='mse', optimizer=optimizer)
+            
+            config = model.get_config()
+            shape0 = config['layers'][0]['config']['batch_input_shape'][1]
+            gen = VoiceGeneratorTargetTpu(gen_targets_dir, 0.1, batch_size, length, train=True, max_size=shape0)
+            val_gen = VoiceGeneratorTargetTpu(gen_targets_dir, 0.1, train=False, max_size=shape0)
+            
+            baseline = model.test_on_batch(val_gen[0][0], val_gen[0][1])
         
         tpu_grpc_url = 'grpc://' + os.environ['COLAB_TPU_ADDR']
         tpu_cluster_resolver = tf.contrib.cluster_resolver.TPUClusterResolver(tpu_grpc_url)
@@ -186,13 +194,15 @@ def target_train_tpu_main(gen_targets_dir, model_file_path, early_stopping_patie
         model = tf.contrib.tpu.keras_to_tpu_model(model, strategy=strategy)
         
         cp = ModelCheckpoint(filepath=model_file_path, monitor='val_loss', save_best_only=True, period=period)
+        if baseline is not None:
+            cp.best = baseline
         
         def lr_scheduler(epoch):
             return optimizer_lr
         scheduler = LearningRateScheduler(lr_scheduler)
         
         if early_stopping_patience is not None:
-            es = EarlyStopping(monitor='val_loss', patience=early_stopping_patience, verbose=0, mode='auto')
+            es = EarlyStopping(monitor='val_loss', patience=early_stopping_patience, verbose=0, mode='auto', baseline=baseline)
             callbacks = [es, cp, scheduler]
         else:
             callbacks = [cp, scheduler]
