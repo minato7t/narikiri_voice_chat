@@ -38,7 +38,6 @@ def gen_targets_main(input_voices_dir='targets', gen_dir_name='gen_targets', zip
     
     for input_voice_index, input_voice in enumerate(input_voices):
     
-        print('\r音声ファイルの解析中...(' + str(input_voice_index) + '/' + str(len(input_voices)) + ')', end='')
         
         name, _ = os.path.splitext(input_voice)
         name = ('_' + name).replace('/', '_').replace('\\', '_')
@@ -99,7 +98,6 @@ def gen_targets_main(input_voices_dir='targets', gen_dir_name='gen_targets', zip
                     write_file.write(struct.pack('<f', pitch[loop * 8]))
                 write_file.close()
     
-    print('\r音声ファイルの解析完了')
     
     if zip_name is not None:
         shutil.make_archive(zip_name, 'zip', root_dir=gen_dir_name)
